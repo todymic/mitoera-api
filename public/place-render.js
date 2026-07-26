@@ -1041,7 +1041,7 @@
       this._tooltip.style.opacity = '1';
       const tw = this._tooltip.offsetWidth;
       this._tooltip.style.left = Math.max(4, (this._cw - tw) / 2) + 'px';
-      this._tooltip.style.top  = '8px';
+      this._tooltip.style.top  = Math.round(this._ch * 0.12) + 'px';
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
