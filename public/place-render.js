@@ -1547,21 +1547,14 @@
             return;
           }
           if (this._mobileStep === 1) {
-            // Step 1 : tap on a section → zoom into it (same as step 0)
+            // Step 1 → 2 : zoom to seat level centered on the tapped section
             const br = el.getBoundingClientRect();
-            const canvasBr = this._canvas.getBoundingClientRect();
-            const ox = (br.left - canvasBr.left) / this._zoom;
-            const oy = (br.top  - canvasBr.top)  / this._zoom;
-            const ow = br.width  / this._zoom;
-            const oh = br.height / this._zoom;
-            const pad = 32;
-            const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
-            const px2 = -(ox + ow/2) * z2 + this._cw / 2;
-            const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+            const vr = this._viewport.getBoundingClientRect();
+            const cx = (br.left + br.width  / 2) - vr.left;
+            const cy = (br.top  + br.height / 2) - vr.top;
             this._hideTooltip();
-            this._mobileStep = 1;
-            this._mobilePendingTooltip = { section: sectionLabel, catId };
-            this._animateZoom(z2, px2, py2, 350);
+            this._mobileStep = 2;
+            this._zoomToLevel(1.8, cx, cy);
             return;
           }
           return;
