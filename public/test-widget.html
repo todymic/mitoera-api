@@ -7,36 +7,128 @@
 <style>
   body { margin: 0; font-family: system-ui, sans-serif; background: #f0f0f0; padding: 20px; }
   h2 { margin-bottom: 12px; color: #111; }
-  #chart { width: 100%; height: 600px; border-radius: 12px; overflow: hidden; }
-  #log { margin-top: 16px; background: #1e1e1e; color: #a3e635; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; max-height: 150px; overflow-y: auto; }
+  #chart { width: 100%; height: 560px; border-radius: 12px; overflow: hidden; }
+  #actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #actions span { font-size: 13px; color: #555; }
+  button {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  #btn-hold   { background: #f59e0b; color: #fff; }
+  #btn-book   { background: #16a34a; color: #fff; }
+  #btn-release { background: #e5e7eb; color: #374151; }
+  #log { margin-top: 12px; background: #1e1e1e; color: #a3e635; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; max-height: 180px; overflow-y: auto; }
 </style>
 </head>
 <body>
-<h2>Placio Widget — iframe</h2>
+<h2>Placio Widget — page de test</h2>
 <div id="chart"></div>
+
+<div id="actions">
+  <span id="sel-label">0 siège(s) sélectionné(s)</span>
+  <button id="btn-hold"    disabled>Réservé (hold)</button>
+  <button id="btn-book"    disabled>Vendu (book)</button>
+  <button id="btn-release" disabled>Libérer</button>
+</div>
+
 <div id="log">Logs…</div>
 
 <script src="/placio-widget.js"></script>
 <script>
+const API_BASE = location.origin;
+
 const log = (msg) => {
   const el = document.getElementById('log');
   el.textContent += '\n' + new Date().toISOString().slice(11,19) + ' ' + msg;
   el.scrollTop = el.scrollHeight;
 };
 
+const btnHold    = document.getElementById('btn-hold');
+const btnBook    = document.getElementById('btn-book');
+const btnRelease = document.getElementById('btn-release');
+const selLabel   = document.getElementById('sel-label');
+
+let currentSeats = [];
+
+function updateButtons() {
+  const n = currentSeats.length;
+  selLabel.textContent = n + ' siège(s) sélectionné(s)';
+  btnHold.disabled    = n === 0;
+  btnBook.disabled    = n === 0;
+  btnRelease.disabled = n === 0;
+}
+
 const chart = new Placio.SeatingChart({
   divId: 'chart',
   workspaceKey: 'pk_pub_3d838b72',
   event: '16',
-  onSeatSelected:   (s) => log('✓ selected: ' + s.seatKey + ' (' + s.catName + ')'),
-  onSeatDeselected: (s) => log('✕ deselected: ' + s.seatKey),
+  onSeatSelected:   (s) => log('✓ sélectionné : ' + s.seatKey + ' (' + (s.catName || '—') + ')'),
+  onSeatDeselected: (s) => log('✕ désélectionné : ' + s.seatKey),
+  onSelectionChange: (seats) => {
+    currentSeats = seats;
+    updateButtons();
+  },
+  onReady: ({ sessionToken, holdToken, eventId }) => {
+    log('✅ prêt — event: ' + eventId);
+    log('   session: ' + (sessionToken || '').slice(0, 24) + '…');
+  },
   onCheckout: (seats) => {
     log('🛒 checkout: ' + seats.length + ' siège(s)');
-    log('   session: ' + chart.getSessionToken()?.slice(0,20) + '…');
-    log('   hold:    ' + chart.getHoldToken()?.slice(0,20) + '…');
   },
 });
 chart.render();
+
+async function apiCall(path, body) {
+  const token = chart.getSessionToken();
+  const eventId = chart.getEventId();
+  if (!token || !eventId) { log('❌ pas encore prêt'); return null; }
+  try {
+    const res = await fetch(`${API_BASE}/api/widget/events/${eventId}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Widget ${token}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    return data;
+  } catch (e) {
+    log('❌ ' + path + ' : ' + e.message);
+    return null;
+  }
+}
+
+btnHold.addEventListener('click', async () => {
+  const seatKeys = currentSeats.map(s => s.seatKey);
+  log('⏳ hold → ' + seatKeys.join(', '));
+  const data = await apiCall('hold', { seatKeys });
+  if (data) log('✅ hold OK — holdToken: ' + (chart.getHoldToken() || '').slice(0, 24) + '…');
+});
+
+btnBook.addEventListener('click', async () => {
+  const seatKeys = currentSeats.map(s => s.seatKey);
+  log('⏳ book → ' + seatKeys.join(', '));
+  const data = await apiCall('book', { seatKeys });
+  if (data) log('✅ book OK');
+});
+
+btnRelease.addEventListener('click', async () => {
+  const seatKeys = currentSeats.map(s => s.seatKey);
+  log('⏳ release → ' + seatKeys.join(', '));
+  const data = await apiCall('release', { seatKeys });
+  if (data) log('✅ release OK');
+});
 </script>
 </body>
 </html>

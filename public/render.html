@@ -184,35 +184,11 @@
           onSeatSelected:   (seat) => { emit('seatSelected',   { seat }); },
           onSeatDeselected: (seat) => { emit('seatDeselected', { seat }); },
         });
-        // ── selection sync (Mercure broadcast) ──────────────────────────────────
-        let _prevSeatKeys = new Set();
-
-        async function syncSelection() {
-          if (!sessionToken || !placioEventId) return;
-          const current = new Set(renderer.getSelectedSeats().map(s => s.seatKey));
-          const updates = [];
-          for (const k of current) {
-            if (!_prevSeatKeys.has(k)) updates.push({ seatKey: k, status: 'hold' });
-          }
-          for (const k of _prevSeatKeys) {
-            if (!current.has(k)) updates.push({ seatKey: k, status: 'available' });
-          }
-          _prevSeatKeys = current;
-          if (!updates.length) return;
-          try {
-            await fetch(`${API_BASE}/api/widget/events/${placioEventId}/sync-selection`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Widget ${sessionToken}` },
-              body: JSON.stringify(updates),
-            });
-          } catch (_) {}
-        }
 
         renderer._onSelectionChange = () => {
           const seats = renderer.getSelectedSeats();
           emit('selectionChange', { seats });
           updateStatsBar();
-          syncSelection();
         };
         renderer.render();
 

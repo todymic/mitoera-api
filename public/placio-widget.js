@@ -36,6 +36,7 @@
       this.onSeatDeselected  = options.onSeatDeselected  || null;
       this.onSelectionChange = options.onSelectionChange || null;
       this.onCheckout        = options.onCheckout        || null;
+      this.onReady           = options.onReady           || null;
       this.categoryPrices   = options.categoryPrices   || {};
 
       this._iframe          = null;
@@ -78,6 +79,7 @@
             this._sessionToken  = data.sessionToken;
             this._holdToken     = data.holdToken;
             this._placioEventId = data.eventId;
+            if (this.onReady) this.onReady({ sessionToken: data.sessionToken, holdToken: data.holdToken, eventId: data.eventId });
             // Push category prices now that the iframe is ready
             if (Object.keys(this.categoryPrices).length) {
               iframe.contentWindow.postMessage({
@@ -119,6 +121,7 @@
 
     getSessionToken()  { return this._sessionToken; }
     getHoldToken()     { return this._holdToken; }
+    getEventId()       { return this._placioEventId; }
 
     /** Remove the iframe and clean up listeners. */
     destroy() {
