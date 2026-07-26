@@ -1565,10 +1565,10 @@
       const centerBadge=css(el('div'),{
         display:'none', position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
-        background:color, borderRadius:'10px', padding:'6px 14px',
-        fontWeight:'700', fontSize:'12px', color:'#fff',
+        background:color, borderRadius:'6px', padding:'2px 7px',
+        fontWeight:'700', fontSize:'11px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
       centerBadge.textContent=row.section||this._catName(row.categoryId);
@@ -1642,10 +1642,10 @@
       const tzCenterBadge=css(el('div'),{
         display:'none', position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
-        background:color, borderRadius:'10px', padding:'6px 14px',
-        fontWeight:'700', fontSize:'12px', color:'#fff',
+        background:color, borderRadius:'6px', padding:'2px 7px',
+        fontWeight:'700', fontSize:'11px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
       tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
@@ -1677,10 +1677,10 @@
       const tsCenterBadge=css(el('div'),{
         display:'none', position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
-        background:color, borderRadius:'10px', padding:'6px 14px',
-        fontWeight:'700', fontSize:'12px', color:'#fff',
+        background:color, borderRadius:'6px', padding:'2px 7px',
+        fontWeight:'700', fontSize:'11px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
       tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
