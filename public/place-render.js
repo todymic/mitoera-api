@@ -529,11 +529,10 @@
         if (document.exitFullscreen) document.exitFullscreen();
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       };
-      const onFsChange = () => {
-        const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        this._isFullscreen = inFs;
-        setFs(inFs);
-        requestAnimationFrame(() => {
+      const fadeAndRender = (inFs) => {
+        root.style.transition = 'opacity 300ms ease';
+        root.style.opacity = '0';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
           this._cw = root.clientWidth;
           this._ch = root.clientHeight;
           if (inFs) {
@@ -548,7 +547,15 @@
             this._updateZoomOutBtn();
           }
           this._updateMinimap();
-        });
+          root.style.opacity = '1';
+          setTimeout(() => { root.style.transition = ''; }, 320);
+        }));
+      };
+      const onFsChange = () => {
+        const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        this._isFullscreen = inFs;
+        setFs(inFs);
+        fadeAndRender(inFs);
       };
       document.addEventListener('fullscreenchange', onFsChange);
       document.addEventListener('webkitfullscreenchange', onFsChange);
