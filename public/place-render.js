@@ -1040,8 +1040,9 @@
       this._tooltip.style.visibility = 'visible';
       this._tooltip.style.opacity = '1';
       const tw = this._tooltip.offsetWidth;
+      const th = this._tooltip.offsetHeight;
       this._tooltip.style.left = Math.max(4, (this._cw - tw) / 2) + 'px';
-      this._tooltip.style.top  = Math.round(this._ch * 0.12) + 'px';
+      this._tooltip.style.top  = Math.max(8, this._ch - th - 20) + 'px';
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
@@ -1686,9 +1687,7 @@
         borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none',
       });
       disc.dataset.lensHide = '1';
-      const dlbl=css(el('span'),{color,fontSize:(t.tableLabelFontSize||12)+'px',fontWeight:'700',textAlign:'center',lineHeight:'1.2',pointerEvents:'none'});
-      dlbl.textContent=t.section||this._catName(t.categoryId);
-      disc.appendChild(dlbl); tzSeatsLayer.appendChild(disc);
+      tzSeatsLayer.appendChild(disc);
       wrapper.appendChild(tzSeatsLayer);
 
       const tzCenterBadge=css(el('div'),{
@@ -1778,9 +1777,7 @@
             display:'flex', alignItems:'center', justifyContent:'center',
           });
           disc.dataset.lensHide = '1';
-          const tlbl=css(el('span'),{color,fontSize:(ts.tableLabelFontSize||12)+'px',fontWeight:'700',lineHeight:'1.2',pointerEvents:'none'});
-          tlbl.textContent=`T${ti+1}`;
-          disc.appendChild(tlbl); tsSeatsLayer.appendChild(disc);
+          tsSeatsLayer.appendChild(disc);
         }
       }
       wrapper.appendChild(tsSeatsLayer);
