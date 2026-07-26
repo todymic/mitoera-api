@@ -52,7 +52,7 @@
       if (!container) { console.error('[Placio] div not found:', this.divId); return; }
 
       container.innerHTML = '';
-      container.style.cssText += ';overflow:hidden;';
+      container.style.cssText += ';overflow:hidden;position:relative;';
 
       // Build iframe URL
       const url = new URL(`${API_BASE}/render.html`);
@@ -68,6 +68,46 @@
       iframe.setAttribute('allowfullscreen', '');
       this._iframe = iframe;
       container.appendChild(iframe);
+
+      // ── fullscreen button (inside container, above iframe) ───────────────
+      const iconExpand = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+      const iconShrink = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`;
+      const fsBtn = document.createElement('button');
+      fsBtn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:200;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:none;border-radius:999px;background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);box-shadow:0 1px 6px rgba(0,0,0,0.10),0 0 0 1px rgba(0,0,0,0.07);cursor:pointer;font-size:13px;font-weight:500;color:#1f2937;font-family:system-ui,sans-serif;white-space:nowrap;';
+      const fsIcon = document.createElement('span');
+      fsIcon.style.display = 'flex';
+      const fsLabel = document.createElement('span');
+      const setFsState = (inFs) => {
+        fsIcon.innerHTML = inFs ? iconShrink : iconExpand;
+        fsLabel.textContent = inFs ? 'Quitter le plein écran' : 'Plein écran';
+      };
+      setFsState(false);
+      fsBtn.appendChild(fsIcon);
+      fsBtn.appendChild(fsLabel);
+      fsBtn.addEventListener('mouseenter', () => { fsBtn.style.background = '#fff'; });
+      fsBtn.addEventListener('mouseleave', () => { fsBtn.style.background = 'rgba(255,255,255,0.92)'; });
+      fsBtn.addEventListener('click', async () => {
+        try {
+          if (document.fullscreenElement === container) {
+            await document.exitFullscreen();
+          } else {
+            await container.requestFullscreen();
+          }
+        } catch (_) {}
+      });
+      const onFsChange = () => {
+        const inFs = document.fullscreenElement === container;
+        setFsState(inFs);
+        if (inFs) {
+          iframe.style.borderRadius = '0';
+        } else {
+          iframe.style.borderRadius = radius;
+        }
+      };
+      document.addEventListener('fullscreenchange', onFsChange);
+      this._fsBtn = fsBtn;
+      this._onFsChange = onFsChange;
+      container.appendChild(fsBtn);
 
       // Listen for messages from this specific iframe
       this._listener = (e) => {
@@ -127,9 +167,12 @@
 
     /** Remove the iframe and clean up listeners. */
     destroy() {
-      if (this._listener) window.removeEventListener('message', this._listener);
-      if (this._iframe)   this._iframe.remove();
+      if (this._listener)   window.removeEventListener('message', this._listener);
+      if (this._onFsChange) document.removeEventListener('fullscreenchange', this._onFsChange);
+      if (this._iframe)     this._iframe.remove();
+      if (this._fsBtn)      this._fsBtn.remove();
       this._iframe = null;
+      this._fsBtn  = null;
     }
   }
 
