@@ -1571,7 +1571,7 @@
         boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
-      centerBadge.textContent=row.section||this._catName(row.categoryId);
+      centerBadge.textContent=this._catName(row.categoryId)||row.section;
       card.appendChild(centerBadge);
       this._secBadges.push(centerBadge);
 
@@ -1653,7 +1653,7 @@
         boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
-      tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
+      tzCenterBadge.textContent=this._catName(t.categoryId)||t.section;
       tzCenterBadge._seatsEl=tzSeatsLayer;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
@@ -1688,7 +1688,7 @@
         boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
-      tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
+      tsCenterBadge.textContent=this._catName(ts.categoryId)||ts.section;
       wrapper.appendChild(tsCenterBadge);
       this._secBadges.push(tsCenterBadge);
 
