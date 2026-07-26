@@ -107,12 +107,19 @@
             break;
 
           case 'placio:requestFullscreen':
+            this._fsParent      = iframe.parentNode;
+            this._fsNextSibling = iframe.nextSibling;
             this._savedIframeStyle = iframe.style.cssText;
+            document.body.appendChild(iframe);
             iframe.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;border:none;display:block;border-radius:0;';
             document.body.style.overflow = 'hidden';
             break;
 
           case 'placio:exitFullscreen':
+            if (this._fsParent) {
+              this._fsParent.insertBefore(iframe, this._fsNextSibling || null);
+              this._fsParent = null;
+            }
             iframe.style.cssText = this._savedIframeStyle || '';
             document.body.style.overflow = '';
             break;
