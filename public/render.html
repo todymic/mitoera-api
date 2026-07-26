@@ -108,6 +108,9 @@
       if (type === 'placio:getSelectedSeats') {
         emit('selectedSeats', { seats: renderer ? renderer.getSelectedSeats() : [] });
       }
+      if (type === 'placio:fullscreenChange' && renderer) {
+        renderer.onFullscreenChange(data.inFs);
+      }
     });
 
     // ── stats bar + checkout ─────────────────────────────────────────────────

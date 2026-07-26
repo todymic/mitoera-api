@@ -98,11 +98,8 @@
       const onFsChange = () => {
         const inFs = document.fullscreenElement === container;
         setFsState(inFs);
-        if (inFs) {
-          iframe.style.borderRadius = '0';
-        } else {
-          iframe.style.borderRadius = radius;
-        }
+        iframe.style.borderRadius = inFs ? '0' : radius;
+        iframe.contentWindow.postMessage({ type: 'placio:fullscreenChange', inFs }, '*');
       };
       document.addEventListener('fullscreenchange', onFsChange);
       this._fsBtn = fsBtn;

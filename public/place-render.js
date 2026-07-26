@@ -145,6 +145,31 @@
     }
 
     /** Returns [{ seatKey, catId, catColor, catName }] */
+    onFullscreenChange(inFs) {
+      const root = this._root;
+      root.style.transition = 'opacity 300ms ease';
+      root.style.opacity = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        this._cw = root.clientWidth;
+        this._ch = root.clientHeight;
+        if (inFs) {
+          const {w, h, minX, minY} = this._bbox;
+          const scale = Math.min(Math.min(this._cw / w, this._ch / h) * 0.92, 1.8);
+          const px = -minX * scale + (this._cw - w * scale) / 2;
+          const py = -minY * scale + (this._ch - h * scale) / 2;
+          this._animateZoom(scale, px, py, 380);
+          if (this._zoomOutBtn) this._zoomOutBtn.style.display = '';
+          this._updateZoomOutBtn();
+        } else {
+          this._fitToContainer();
+          this._updateZoomOutBtn();
+        }
+        this._updateMinimap();
+        root.style.opacity = '1';
+        setTimeout(() => { root.style.transition = ''; }, 320);
+      }));
+    }
+
     getSelectedSeats() {
       return [...this._selected].map(key => {
         const catId = this._seatCatMap[key] || null;
