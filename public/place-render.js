@@ -1580,8 +1580,6 @@
         display:'grid', gridTemplateColumns:`repeat(${row.cols||1},${colW}px)`, gap:'6px',
       });
       centerBadge._seatsEl=grid;
-      card.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; grid.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
-      card.addEventListener('mouseleave', () => { centerBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       for (let r=0;r<(row.rows||1);r++) {
         for (let c=0;c<(row.cols||1);c++) {
@@ -1600,6 +1598,8 @@
       }
       card.appendChild(grid); wrapper.appendChild(card);
       wrapper.dataset.plancat = row.categoryId || '';
+      wrapper.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; grid.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { centerBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
       this._addSectionClick(wrapper, row.section||this._catName(row.categoryId));
       this._canvas.appendChild(wrapper);
     }
