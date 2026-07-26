@@ -1525,7 +1525,8 @@
       el.addEventListener('pointerup', (e) => {
         e.stopPropagation();
         this._onPointerUp();
-        if (this._didDrag) return;
+        // On mobile step 1, a pan-then-release on a section still selects it
+        if (this._didDrag && !(this._isMobile() && this._mobileStep === 1)) return;
         if (this._isMobile()) {
           if (this._animFrame) return;
           if (this._mobileStep === 0) {
