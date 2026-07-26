@@ -30,6 +30,20 @@ class EventController extends AbstractController
         return $this->json($events);
     }
 
+    #[Route('/lookup/{identifier}', methods: ['GET'])]
+    #[OA\Tag(name: 'Events')]
+    #[OA\Parameter(name: 'identifier', in: 'path', required: true, schema: new OA\Schema(type: 'string'))]
+    #[OA\Response(response: 200, description: 'UUID de l\'événement')]
+    #[OA\Response(response: 404, description: 'Événement introuvable')]
+    public function lookup(string $identifier): JsonResponse
+    {
+        $event = $this->eventService->findByIdentifier($identifier);
+        if (!$event) {
+            return $this->json(['error' => 'Event not found'], Response::HTTP_NOT_FOUND);
+        }
+        return $this->json(['id' => (string) $event->getId()]);
+    }
+
     #[Route('', methods: ['POST'])]
     #[IsGranted('ROLE_BACKOFFICE')]
     #[OA\Tag(name: 'Events')]
@@ -130,12 +144,46 @@ class EventController extends AbstractController
     #[IsGranted('IS_AUTHENTICATED')]
     #[OA\Tag(name: 'Events')]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
-    #[OA\Response(response: 200, description: 'Liste des statuts de sieges')]
+    #[OA\Parameter(name: 'seatKeys[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string')))]
+    #[OA\Response(response: 200, description: 'Statuts des sieges indexes par seatKey')]
     #[OA\Response(response: 404, description: 'Evenement introuvable')]
-    public function getSeats(string $id): JsonResponse
+    public function getSeats(string $id, Request $request): JsonResponse
     {
         $event = $this->eventService->findById($id);
-        return $this->json(['seats' => $event->seats]);
+        $filterKeys = $request->query->all('seatKeys');
+
+        $seats = $event->seats;
+        if ($filterKeys !== []) {
+            $filterSet = array_flip($filterKeys);
+            $seats = array_filter($seats, fn($s) => isset($filterSet[$s->seatKey]));
+        }
+
+        $indexed = [];
+        foreach ($seats as $seat) {
+            $indexed[$seat->seatKey] = [
+                'status'    => $seat->status,
+                'holdToken' => $seat->holdToken ?? null,
+            ];
+        }
+
+        return $this->json(['seats' => $indexed]);
+    }
+
+    #[Route('/{id}/seats/bulk-status', methods: ['PATCH'])]
+    #[IsGranted('ROLE_BACKOFFICE')]
+    #[OA\Tag(name: 'Events')]
+    #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['seatKeys', 'status'], properties: [
+        new OA\Property(property: 'seatKeys', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'status', type: 'string', enum: ['available', 'booked', 'hold', 'canceled']),
+    ]))]
+    #[OA\Response(response: 200, description: 'Statuts mis a jour')]
+    public function bulkUpdateSeats(string $id, Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $event = $this->eventService->findById($id);
+        $this->eventService->bulkUpdateSeatStatus($id, $data['seatKeys'] ?? [], $data['status'] ?? 'available');
+        return $this->json(['updated' => count($data['seatKeys'] ?? [])]);
     }
 }
 

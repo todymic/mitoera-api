@@ -23,7 +23,7 @@ class ChartObjectNode
         $node->type = $data['type'] ?? '';
         $node->key = $data['key'] ?? '';
         $node->label = $data['label'] ?? '';
-        $node->categoryKey = $data['categoryKey'] ?? null;
+        $node->categoryKey = $data['categoryKey'] ?? $data['category'] ?? null;
         $node->x = $data['x'] ?? 0;
         $node->y = $data['y'] ?? 0;
         $node->rotation = $data['rotation'] ?? 0;

@@ -102,11 +102,18 @@
 
       this._seatSectionMap = {}; // seatKey → section label
       this._lensWrap  = null;
+      this._secBadges = []; // center badges shown at low zoom
       this._minZoom   = 0.1;
       this._animFrame = null;
 
       // set by widget to refresh checkout bar on selection change
       this._onSelectionChange = null;
+
+      this._activePointers = new Map(); // pointerId → {x,y} for pinch-to-zoom
+      this._pinchDist  = null;
+      this._pinchZoom  = null;
+      this._mobileStep = 0; // 0=overview, 1=section zoomed, 2=seat zoomed
+      this._filterCatId = null; // active category filter
 
       this._boundMove = this._onPointerMove.bind(this);
       this._boundUp   = this._onPointerUp.bind(this);
@@ -192,7 +199,7 @@
       root.appendChild(vp);
       this._viewport = vp;
 
-      const canvas = css(el('div'), {position:'absolute',top:'0',left:'0',transformOrigin:'0 0',background:'#ffffff'});
+      const canvas = css(el('div'), {position:'absolute',top:'0',left:'0',transformOrigin:'0 0',background:'#ffffff',willChange:'transform'});
       vp.appendChild(canvas);
       this._canvas = canvas;
 
@@ -201,6 +208,8 @@
       this._buildControls(root);
       this._buildMinimap(root);
       this._buildLens(root);
+      this._buildMobileModal(root);
+      this._buildLegend(root);
 
       vp.addEventListener('wheel',       this._onWheel.bind(this), {passive:false});
       vp.addEventListener('pointerdown', this._onPointerDown.bind(this));
@@ -221,9 +230,11 @@
       const {w,h,minX,minY} = this._bbox;
       const scale = this._overviewZoom();
       this._minZoom = scale;
+      this._maxWheelZoom = scale * 1.8;
       this._zoom = scale;
       this._panX = -minX*scale + (this._cw - w*scale)/2;
       this._panY = -minY*scale + (this._ch - h*scale)/2;
+      this._mobileStep = 0;
       this._applyTransform();
     }
 
@@ -245,7 +256,18 @@
       this._canvas.style.transform = `translate(${this._panX}px,${this._panY}px) scale(${this._zoom})`;
       if (this._mmWrap) this._mmWrap.style.display = this._zoom > 1 ? 'block' : 'none';
       this._updateZoomOutBtn();
+      this._updateMinimap();
       this._updateLens();
+      this._updateSecBadges();
+    }
+
+    _updateSecBadges() {
+      const show = this._zoom <= 0.6;
+      const scale = show ? Math.min(3, 1 / this._zoom) : 1;
+      for (const b of this._secBadges) {
+        b.style.display = (show && !b._suppressed) ? '' : 'none';
+        if (show) b.style.transform = `translate(-50%,-50%) scale(${scale})`;
+      }
     }
 
     // ── animation ───────────────────────────────────────────────────────────────
@@ -253,13 +275,36 @@
     _animateZoom(z2, px2, py2, dur) {
       dur = dur || 340;
       if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
-      // Hide lens during animation: cloneNode(true) every rAF frame = jank
       if (this._lensWrap) this._lensWrap.innerHTML = '';
+
+      // On mobile: use CSS transition (GPU-accelerated, no JS per-frame overhead)
+      if (this._isMobile()) {
+        this._zoom = z2; this._panX = px2; this._panY = py2;
+        this._canvas.style.transition = `transform ${dur}ms cubic-bezier(0.32,0.72,0,1)`;
+        this._canvas.style.transform  = `translate(${px2}px,${py2}px) scale(${z2})`;
+        if (this._mmWrap) this._mmWrap.style.display = z2 > 1 ? 'block' : 'none';
+        // Mark animating so taps are blocked; clear after transition ends
+        this._animFrame = 1; // truthy sentinel
+        const onEnd = () => {
+          this._canvas.style.transition = 'none';
+          this._canvas.removeEventListener('transitionend', onEnd);
+          this._animFrame = null;
+          this._updateMinimap();
+          this._updateZoomOutBtn();
+          this._updateSecBadges();
+          this._updateLens();
+        };
+        this._canvas.addEventListener('transitionend', onEnd, {once: true});
+        // Safety fallback in case transitionend doesn't fire
+        setTimeout(() => { if (this._animFrame === 1) onEnd(); }, dur + 100);
+        return;
+      }
+
       const z1 = this._zoom, px1 = this._panX, py1 = this._panY;
       const t0 = performance.now();
       const tick = (now) => {
         let t = Math.min(1, (now - t0) / dur);
-        t = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        t = 1 - Math.pow(1 - t, 3);
         this._zoom = z1 + (z2 - z1) * t;
         this._panX = px1 + (px2 - px1) * t;
         this._panY = py1 + (py2 - py1) * t;
@@ -271,7 +316,8 @@
           this._animFrame = requestAnimationFrame(tick);
         } else {
           this._animFrame = null;
-          this._updateLens(); // rebuild lens once, only when animation is complete
+          this._updateLens();
+          this._updateSecBadges();
         }
       };
       this._animFrame = requestAnimationFrame(tick);
@@ -314,33 +360,118 @@
 
     _onWheel(e) {
       e.preventDefault();
-      const r = this._viewport.getBoundingClientRect();
-      this._zoomCenteredOn(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1/1.12);
+      if (this._zoom >= (this._maxWheelZoom || Infinity)) return;
+      const rect  = this._viewport.getBoundingClientRect();
+      const cx    = e.clientX - rect.left;
+      const cy    = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.85 : 1 / 0.85;
+      this._zoomCenteredOn(cx, cy, this._zoom * delta);
     }
 
     _onPointerDown(e) {
-      if (e.button !== 0) return;
-      this._dragging  = true;
-      this._didDrag   = false;
-      this._dragStart = {x: e.clientX - this._panX, y: e.clientY - this._panY};
-      this._viewport.style.cursor = 'grabbing';
+      // Minimap drag: detect if pointerdown is over the minimap vpr
+      if (this._mmVpr && this._mmWrap && this._mmWrap.style.display !== 'none') {
+        const mmBr  = this._mmWrap.getBoundingClientRect();
+        const vprX  = parseFloat(this._mmVpr.getAttribute('x')  || 0);
+        const vprY  = parseFloat(this._mmVpr.getAttribute('y')  || 0);
+        const vprW  = parseFloat(this._mmVpr.getAttribute('width')  || 0);
+        const vprH  = parseFloat(this._mmVpr.getAttribute('height') || 0);
+        const ms    = this._mmMs || 1;
+        // Hit-test against the blue rect area (with generous padding for touch)
+        const lx = e.clientX - mmBr.left;
+        const ly = e.clientY - mmBr.top;
+        const pad = 12;
+        if (lx >= vprX - pad && lx <= vprX + vprW + pad &&
+            ly >= vprY - pad && ly <= vprY + vprH + pad) {
+          this._mmDragging   = true;
+          this._mmDragStart  = {x: e.clientX, y: e.clientY, panX: this._panX, panY: this._panY};
+          this._mmDragPtId   = e.pointerId;
+          css(this._mmVpr, {cursor:'grabbing'});
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      this._activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+      if (this._activePointers.size === 2) {
+        this._dragging = false;
+        const pts = [...this._activePointers.values()];
+        this._pinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        this._pinchZoom = this._zoom;
+        this._pinchPanX = this._panX;
+        this._pinchPanY = this._panY;
+        this._pinchMidX = (pts[0].x + pts[1].x) / 2;
+        this._pinchMidY = (pts[0].y + pts[1].y) / 2;
+      } else if (this._activePointers.size === 1 && e.button === 0) {
+        this._dragging  = true;
+        this._didDrag   = false;
+        this._dragStart = {x: e.clientX - this._panX, y: e.clientY - this._panY};
+        this._viewport.style.cursor = 'grabbing';
+      }
     }
 
     _onPointerMove(e) {
+      // Minimap drag takes priority
+      if (this._mmDragging && e.pointerId === this._mmDragPtId) {
+        const ms    = this._mmMs, minX = this._mmMinX, minY = this._mmMinY;
+        const MW    = this._mmMW, MH   = this._mmMH;
+        const ox    = this._mmOx, oy   = this._mmOy;
+        const dx    = e.clientX - this._mmDragStart.x;
+        const dy    = e.clientY - this._mmDragStart.y;
+        let newPanX = this._mmDragStart.panX - this._zoom * dx / ms;
+        let newPanY = this._mmDragStart.panY - this._zoom * dy / ms;
+        const vprW  = (this._cw / this._zoom) * ms;
+        const vprH  = (this._ch / this._zoom) * ms;
+        const rectX = ox + (-newPanX / this._zoom - minX) * ms;
+        const rectY = oy + (-newPanY / this._zoom - minY) * ms;
+        newPanX -= (Math.max(0, Math.min(MW - vprW, rectX)) - rectX) * this._zoom / ms;
+        newPanY -= (Math.max(0, Math.min(MH - vprH, rectY)) - rectY) * this._zoom / ms;
+        this._panX = newPanX;
+        this._panY = newPanY;
+        this._applyTransform(false);
+        return;
+      }
+
+      if (!this._activePointers.has(e.pointerId)) return;
+      this._activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+      if (this._activePointers.size === 2) {
+        const pts  = [...this._activePointers.values()];
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        const midX = (pts[0].x + pts[1].x) / 2;
+        const midY = (pts[0].y + pts[1].y) / 2;
+        const scale = dist / (this._pinchDist || dist);
+        const nz = Math.max(this._minZoom, Math.min(6, this._pinchZoom * scale));
+        const r  = nz / (this._pinchZoom || nz);
+        this._panX = midX - r * (this._pinchMidX - this._pinchPanX) - this._pinchMidX + midX;
+        this._panY = midY - r * (this._pinchMidY - this._pinchPanY) - this._pinchMidY + midY;
+        this._zoom = nz;
+        this._applyTransform();
+        return;
+      }
+
       if (!this._dragging) return;
       const dx = e.clientX - this._dragStart.x - this._panX;
       const dy = e.clientY - this._dragStart.y - this._panY;
-      if (Math.abs(dx)+Math.abs(dy) > 3) this._didDrag = true;
+      if (Math.abs(dx)+Math.abs(dy) > (this._isMobile() ? 14 : 8)) { this._didDrag = true; this._mobileStep = 0; }
       this._panX = e.clientX - this._dragStart.x;
       this._panY = e.clientY - this._dragStart.y;
       this._applyTransform();
       this._updateMinimap();
     }
 
-    _onPointerUp() {
-      if (!this._dragging) return;
-      this._dragging = false;
-      this._viewport.style.cursor = 'grab';
+    _onPointerUp(e) {
+      if (this._mmDragging && e && e.pointerId === this._mmDragPtId) {
+        this._mmDragging = false;
+        if (this._mmVpr) css(this._mmVpr, {cursor:'grab'});
+        return;
+      }
+      if (e) this._activePointers.delete(e.pointerId);
+      if (this._activePointers.size < 2) this._pinchDist = null;
+      if (this._activePointers.size === 0) {
+        this._dragging = false;
+        if (this._viewport) this._viewport.style.cursor = 'grab';
+      }
     }
 
     // ── fullscreen button (top-right) ────────────────────────────────────────────
@@ -359,34 +490,62 @@
       const iconExpand = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
       const iconShrink = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`;
       const span = el('span');
+      const isMobile = () => window.innerWidth < 768;
       const setFs = (inFs) => {
         btn.innerHTML = '';
         const ic = el('span'); ic.innerHTML = inFs ? iconShrink : iconExpand;
         ic.style.display = 'flex';
         btn.appendChild(ic);
-        span.textContent = inFs ? 'Quitter le plein écran' : 'Plein écran';
-        btn.appendChild(span);
+        if (!isMobile()) {
+          span.textContent = inFs ? 'Quitter le plein écran' : 'Plein écran';
+          btn.appendChild(span);
+        }
+        btn.style.padding = isMobile() ? '7px' : '6px 12px';
       };
       setFs(false);
       btn.addEventListener('mouseenter', () => btn.style.background = '#ffffff');
       btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(255,255,255,0.92)');
-      btn.addEventListener('click', () => {
-        if (document.fullscreenElement === root) {
-          document.exitFullscreen?.();
-        } else {
-          root.requestFullscreen?.().catch(() => {});
-        }
-      });
-      document.addEventListener('fullscreenchange', () => {
-        const inFs = document.fullscreenElement === root;
-        setFs(inFs);
-        if (inFs) {
-          this._cw = root.clientWidth; this._ch = root.clientHeight;
-        } else {
-          this._cw = root.clientWidth; this._ch = root.clientHeight;
-        }
-        this._fitToContainer();
+      const enterFs = () => {
+        // Save original DOM position so we can restore it on exit
+        this._fsParent      = root.parentNode;
+        this._fsNextSibling = root.nextSibling;
+        this._fsSavedStyle  = root.getAttribute('style') || '';
+        // Move to body to escape any ancestor overflow/transform constraints
+        document.body.appendChild(root);
+        Object.assign(root.style, {
+          position:'fixed', inset:'0', zIndex:'99999',
+          width:'100vw', height:'100vh', borderRadius:'0',
+        });
+        this._isFullscreen = true;
+        setFs(true);
+        this._cw = root.clientWidth;
+        this._ch = root.clientHeight;
+        const {w,h,minX,minY} = this._bbox;
+        const scale = 1.5;
+        const px = -minX*scale + (this._cw - w*scale)/2;
+        const py = -minY*scale + (this._ch - h*scale)/2;
+        this._animateZoom(scale, px, py, 380);
+        if (this._zoomOutBtn) this._zoomOutBtn.style.display = 'none';
         this._updateMinimap();
+      };
+      const exitFs = () => {
+        // Restore original inline style and DOM position
+        root.setAttribute('style', this._fsSavedStyle);
+        if (this._fsNextSibling) {
+          this._fsParent.insertBefore(root, this._fsNextSibling);
+        } else {
+          this._fsParent.appendChild(root);
+        }
+        this._isFullscreen = false;
+        setFs(false);
+        this._cw = root.clientWidth;
+        this._ch = root.clientHeight;
+        this._fitToContainer();
+        this._updateZoomOutBtn();
+        this._updateMinimap();
+      };
+      btn.addEventListener('click', () => {
+        this._isFullscreen ? exitFs() : enterFs();
       });
       root.appendChild(btn);
     }
@@ -419,16 +578,20 @@
 
     _updateZoomOutBtn() {
       if (!this._zoomOutBtn) return;
-      const show = this._zoom > 0.55;
+      const show = !this._isFullscreen && this._zoom > 0.55;
       this._zoomOutBtn.style.display = show ? 'flex' : 'none';
     }
 
     // ── minimap ─────────────────────────────────────────────────────────────────
 
     _buildMinimap(root) {
-      const MW=160, MH=100;
+      const isMobile = this._cw < 600;
+      const MW=Math.round(Math.min(isMobile?180:260, Math.max(isMobile?100:140, this._cw * 0.22)));
+      const MH=Math.round(Math.min(isMobile?120:180, Math.max(isMobile?70:90,   this._ch * 0.22)));
+      // On mobile, sit above the zoom-out button (bottom:60px) to avoid overlap
+      const mmBottom = isMobile ? '60px' : '10px';
       const wrap = css(el('div'), {
-        position:'absolute', bottom:'10px', right:'10px', zIndex:'20',
+        position:'absolute', bottom:mmBottom, right:'10px', zIndex:'20',
         width:MW+'px', height:MH+'px',
         background:'rgba(255,255,255,0.95)', border:'1px solid #e2e8f0',
         borderRadius:'8px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', overflow:'hidden',
@@ -436,13 +599,6 @@
       });
       this._mmWrap = wrap;
 
-      const lbl = css(el('div'), {
-        position:'absolute', top:'4px', left:'6px', zIndex:'2',
-        fontSize:'9px', fontWeight:'700', color:'#94a3b8',
-        textTransform:'uppercase', letterSpacing:'.06em',
-      });
-      lbl.textContent = "Vue d'ensemble";
-      wrap.appendChild(lbl);
 
       const {w,h,minX,minY} = this._bbox;
       const ms = Math.min((MW-8)/w, (MH-20)/h);
@@ -454,20 +610,23 @@
       css(svg, {position:'absolute',top:'0',left:'0'});
 
       for (const o of this._data.chartObjects||[]) {
-        const color = this._catColor(o.categoryId);
+        const isFZ = o._type==='freeZone';
+        const color = isFZ ? (o.color||'#6b7280') : this._catColor(o.categoryId);
         const rx=(o.left||0)-minX, ry=(o.top||0)-minY;
         let rw=0, rh=0;
-        if (o._type==='zone'||o._type==='freeZone')  { rw=o.width||80; rh=o.height||60; }
-        else if (o._type==='seatRow')                { const ss=o.seatSize||22,g=o.seatGap??4; rw=(o.cols||1)*(ss+g); rh=(o.rows||1)*(ss+g)+14; }
-        else if (o._type==='tableZone')              { const s=tableZoneSize(o); rw=s; rh=s; }
-        else if (o._type==='tableSection')           { rw=tsSectionWidth(o); rh=tsSectionHeight(o); }
+        if (o._type==='zone'||isFZ)       { rw=o.width||80; rh=o.height||60; }
+        else if (o._type==='seatRow')     { const ss=o.seatSize||22,g=o.seatGap??4; rw=(o.cols||1)*(ss+g); rh=(o.rows||1)*(ss+g)+14; }
+        else if (o._type==='tableZone')   { const s=tableZoneSize(o); rw=s; rh=s; }
+        else if (o._type==='tableSection'){ rw=tsSectionWidth(o); rh=tsSectionHeight(o); }
         if (!rw||!rh) continue;
+        const px=ox+rx*ms, py=oy+ry*ms, pw=Math.max(3,rw*ms), ph=Math.max(3,rh*ms);
         const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-        rect.setAttribute('x', ox+rx*ms); rect.setAttribute('y', oy+ry*ms);
-        rect.setAttribute('width', Math.max(2,rw*ms)); rect.setAttribute('height', Math.max(2,rh*ms));
+        rect.setAttribute('x', px); rect.setAttribute('y', py);
+        rect.setAttribute('width', pw); rect.setAttribute('height', ph);
         rect.setAttribute('rx', 2);
-        rect.setAttribute('fill', rgba(color,0.3)); rect.setAttribute('stroke', rgba(color,0.6));
-        rect.setAttribute('stroke-width', '0.5');
+        rect.setAttribute('fill', rgba(color, isFZ ? 0.55 : 0.25));
+        rect.setAttribute('stroke', rgba(color, isFZ ? 0.8 : 0.65));
+        rect.setAttribute('stroke-width', '0.8');
         svg.appendChild(rect);
       }
 
@@ -478,6 +637,62 @@
       vpr.setAttribute('rx','2');
       svg.appendChild(vpr);
       this._mmRect = vpr;
+
+      css(vpr, {cursor:'grab'});
+      css(svg, {touchAction:'none'});
+      this._mmVpr  = vpr;
+      this._mmMs   = ms; this._mmOx = ox; this._mmOy = oy;
+      this._mmMinX = minX; this._mmMinY = minY;
+      this._mmMW   = MW;  this._mmMH  = MH;
+
+      // Attach pointerdown directly on the SVG wrap so it fires even over the viewport
+      svg.addEventListener('pointerdown', (e) => {
+        const mmBr = wrap.getBoundingClientRect();
+        const lx = e.clientX - mmBr.left;
+        const ly = e.clientY - mmBr.top;
+        const vx = parseFloat(vpr.getAttribute('x')      || 0);
+        const vy = parseFloat(vpr.getAttribute('y')      || 0);
+        const vw = parseFloat(vpr.getAttribute('width')  || 0);
+        const vh = parseFloat(vpr.getAttribute('height') || 0);
+        const pad = 14;
+        if (lx >= vx - pad && lx <= vx + vw + pad && ly >= vy - pad && ly <= vy + vh + pad) {
+          this._mmDragging  = true;
+          this._mmDragStart = {x: e.clientX, y: e.clientY, panX: this._panX, panY: this._panY};
+          this._mmDragPtId  = e.pointerId;
+          svg.setPointerCapture(e.pointerId);
+          css(vpr, {cursor:'grabbing'});
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }, {passive: false});
+
+      svg.addEventListener('pointermove', (e) => {
+        if (!this._mmDragging || e.pointerId !== this._mmDragPtId) return;
+        const ms = this._mmMs, minX = this._mmMinX, minY = this._mmMinY;
+        const MW = this._mmMW,  MH  = this._mmMH;
+        const ox = this._mmOx,  oy  = this._mmOy;
+        const dx = e.clientX - this._mmDragStart.x;
+        const dy = e.clientY - this._mmDragStart.y;
+        let newPanX = this._mmDragStart.panX - this._zoom * dx / ms;
+        let newPanY = this._mmDragStart.panY - this._zoom * dy / ms;
+        const vprW  = (this._cw / this._zoom) * ms;
+        const vprH  = (this._ch / this._zoom) * ms;
+        const rectX = ox + (-newPanX / this._zoom - minX) * ms;
+        const rectY = oy + (-newPanY / this._zoom - minY) * ms;
+        newPanX -= (Math.max(0, Math.min(MW - vprW, rectX)) - rectX) * this._zoom / ms;
+        newPanY -= (Math.max(0, Math.min(MH - vprH, rectY)) - rectY) * this._zoom / ms;
+        this._panX = newPanX; this._panY = newPanY;
+        this._applyTransform(false);
+        e.stopPropagation();
+      });
+
+      svg.addEventListener('pointerup', (e) => {
+        if (!this._mmDragging || e.pointerId !== this._mmDragPtId) return;
+        this._mmDragging = false;
+        svg.releasePointerCapture(e.pointerId);
+        css(vpr, {cursor:'grab'});
+        e.stopPropagation();
+      });
 
       wrap.appendChild(svg);
       root.appendChild(wrap);
@@ -499,7 +714,9 @@
         position:'absolute', zIndex:'50', pointerEvents:'none',
         background:'#fff', border:'1px solid #e5e7eb',
         borderRadius:'12px', boxShadow:'0 4px 20px rgba(0,0,0,0.12)',
-        display:'none', minWidth:'180px', overflow:'hidden',
+        minWidth:'180px', overflow:'hidden',
+        opacity:'0', visibility:'hidden',
+        transition:'opacity 0.15s ease, visibility 0.15s ease',
       });
       root.appendChild(tip);
       return tip;
@@ -520,7 +737,7 @@
       let barBg, barLeft, barRight;
       if (isUnavailable) {
         barBg    = '#9ca3af';
-        barLeft  = `<span style="font-size:14px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
+        barLeft  = `<span style="font-size:16px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
         barRight = '';
       } else if (sel) {
         barBg   = color;
@@ -528,14 +745,14 @@
           <span style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.25);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg></span>
           <div style="display:flex;flex-direction:column;line-height:1.3">
             <span style="font-size:14px;font-weight:800;color:#fff">Sélectionné</span>
-            <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75)">${name}</span>
+            <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85)">${name}</span>
           </div>
         </div>`;
-        barRight = price ? `<span style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
+        barRight = price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
       } else {
         barBg    = color;
-        barLeft  = `<span style="font-size:14px;font-weight:700;color:#fff">${name}</span>`;
-        barRight = price ? `<span style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
+        barLeft  = `<span style="font-size:16px;font-weight:700;color:#fff">${name}</span>`;
+        barRight = price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
       }
 
       this._tooltip.innerHTML = `
@@ -549,15 +766,276 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:${barBg};margin-top:4px;gap:10px">
           ${barLeft}${barRight}
         </div>`;
-      this._tooltip.style.display = 'block';
       const cr=this._root.getBoundingClientRect(), er=seatEl.getBoundingClientRect();
       let left=er.left-cr.left+er.width/2-90;
       let top=er.top-cr.top-this._tooltip.offsetHeight-8;
       if (top<4) top=er.top-cr.top+er.height+8;
       this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-188))+'px';
       this._tooltip.style.top  = top+'px';
+      this._tooltip.style.visibility='visible';
+      this._tooltip.style.opacity='1';
     }
-    _hideTooltip() { this._tooltip.style.display='none'; }
+    _hideTooltip() { this._tooltip.style.opacity='0'; this._tooltip.style.visibility='hidden'; }
+
+    _isMobile() { return window.innerWidth < 768; }
+
+    _applyFilter(catId) {
+      this._filterCatId = catId;
+      this._canvas.querySelectorAll('[data-plancat]').forEach(node => {
+        const match = !catId || node.dataset.plancat === catId;
+        node.style.opacity    = match ? '1'   : '0.15';
+        node.style.filter     = match ? ''    : 'blur(1.5px)';
+        node.style.transition = 'opacity 0.2s, filter 0.2s';
+        node.style.pointerEvents = match ? '' : 'none';
+      });
+      this._updateLegendState();
+    }
+
+    _updateLegendState() {
+      if (!this._legendPills) return;
+      const catId = this._filterCatId;
+      const cats  = Object.values(this._catMap);
+      for (const cat of cats) {
+        const pill  = this._legendPills[cat.id];
+        if (!pill) continue;
+        const color    = cat.color || '#6366f1';
+        const selected = catId && cat.id === catId;   // this specific cat is filtered
+        const dimmed   = catId && cat.id !== catId;   // another cat is filtered
+        if (this._isMobile()) {
+          pill.style.background = selected ? color : '#fff';
+          pill.style.border     = selected ? `2px solid ${color}` : '2px solid #e5e7eb';
+          pill.style.boxShadow  = selected ? `0 2px 6px ${color}33` : '0 1px 3px rgba(0,0,0,0.06)';
+          pill.style.opacity    = dimmed ? '0.4' : '1';
+          pill.querySelectorAll('span').forEach(s => {
+            s.style.color = selected ? '#fff' : '#111827';
+          });
+          const dot = pill.querySelector('[data-dot]');
+          if (dot) dot.style.background = selected ? 'rgba(255,255,255,0.6)' : (cat.color || '#6366f1');
+        } else {
+          pill.style.opacity    = dimmed ? '0.4' : '1';
+          pill.style.border     = selected ? `2px solid ${color}` : '2px solid #e5e7eb';
+          pill.style.background = selected ? `${color}12` : '#fff';
+          pill.style.boxShadow  = selected ? `0 4px 12px ${color}44` : '0 1px 3px rgba(0,0,0,0.06)';
+        }
+      }
+      // Reserved pill
+      const rp = this._legendPills.__reserved;
+      if (rp) rp.style.opacity = !catId ? '1' : '0.35';
+      // "Tout afficher" + count
+      if (this._legendShowAll) {
+        this._legendShowAll.style.display = catId ? 'flex' : 'none';
+      }
+    }
+
+    _buildLegend(root) {
+      const cats = Object.values(this._catMap);
+      if (!cats.length) return;
+      const mobile = this._isMobile();
+
+      const style = document.createElement('style');
+      style.textContent = '.pr-legend::-webkit-scrollbar{display:none}';
+      document.head.appendChild(style);
+
+      const bar = css(el('div'), {
+        position:'absolute', top:'0', left:'0', right:'0', zIndex:'25',
+        background:'rgba(255,255,255,0.95)',
+        backdropFilter:'blur(6px)',
+        borderBottom:'1px solid rgba(0,0,0,0.06)',
+      });
+      bar.className = 'pr-legend';
+      this._legendPills = {};
+
+      // Pills — 2-column grid on mobile, horizontal scroll on desktop
+      const grid = css(el('div'), mobile ? {
+        display:'grid', gridTemplateColumns:'1fr 1fr',
+        gap:'6px', padding:'10px 14px 8px', overflow:'visible',
+      } : {
+        display:'flex', alignItems:'center', gap:'8px',
+        padding:'10px 14px', overflowX:'auto', scrollbarWidth:'none',
+      });
+
+      for (const cat of cats) {
+        const color = cat.color || '#6366f1';
+        const price = cat.price != null
+          ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'AR')
+          : null;
+        const pill = css(el('div'), {
+          display:'inline-flex', alignItems:'center', gap:'8px',
+          padding:'6px 12px', borderRadius:'999px', flexShrink:'0',
+          background:'#fff', border:'2px solid #e5e7eb',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.06)',
+          cursor:'pointer', userSelect:'none', transition:'all 0.18s ease',
+        });
+
+        const dot = css(el('span'), {
+          width:'10px', height:'10px', borderRadius:'50%',
+          background:color, flexShrink:'0', boxShadow:`0 0 0 2px ${color}33`,
+        });
+        dot.dataset.dot = '1';
+
+        const lbl = css(el('span'), {
+          fontSize:'12px', fontWeight:'700', color:'#111827', whiteSpace:'nowrap',
+        });
+        lbl.textContent = cat.name || '';
+
+        pill.appendChild(dot);
+        pill.appendChild(lbl);
+
+        if (price) {
+          const p = css(el('span'), {
+            fontSize:'11px', fontWeight:'600', color:'#6b7280', whiteSpace:'nowrap',
+          });
+          p.textContent = price;
+          pill.appendChild(p);
+        }
+
+        pill.addEventListener('click', () => {
+          this._applyFilter(this._filterCatId === cat.id ? null : cat.id);
+        });
+        this._legendPills[cat.id] = pill;
+        grid.appendChild(pill);
+      }
+
+      // Reserved pill
+      const resPill = css(el('div'), {
+        display:'inline-flex', alignItems:'center', gap:'8px',
+        padding:'6px 12px', borderRadius:'999px', flexShrink:'0',
+        background:'#f9fafb', border:'1px solid #e5e7eb',
+        transition:'opacity 0.18s',
+      });
+      const resDot = css(el('span'), {width:'10px', height:'10px', borderRadius:'50%', background:'#9ca3af', flexShrink:'0'});
+      const resLbl = css(el('span'), {fontSize:'12px', fontWeight:'700', color:'#9ca3af', whiteSpace:'nowrap'});
+      resLbl.textContent = 'Réservé';
+      resPill.appendChild(resDot); resPill.appendChild(resLbl);
+      this._legendPills.__reserved = resPill;
+      grid.appendChild(resPill);
+      bar.appendChild(grid);
+
+      this._legendShowAll = null;
+
+      root.appendChild(bar);
+      this._legendBar = bar;
+      this._viewport.style.top = mobile ? (bar.offsetHeight || 80) + 'px' : '40px';
+      // Recalc after paint
+      requestAnimationFrame(() => {
+        if (this._viewport) this._viewport.style.top = bar.offsetHeight + 'px';
+      });
+    }
+
+    _buildMobileModal(root) {
+      // Backdrop
+      const overlay = css(el('div'), {
+        position:'absolute', inset:'0', zIndex:'200',
+        background:'rgba(0,0,0,0.35)',
+        opacity:'0', visibility:'hidden',
+        transition:'opacity 0.2s ease, visibility 0.2s ease',
+      });
+      // Sheet
+      const sheet = css(el('div'), {
+        position:'absolute', bottom:'0', left:'0', right:'0',
+        background:'#fff', borderRadius:'20px 20px 0 0',
+        boxShadow:'0 -4px 32px rgba(0,0,0,0.18)',
+        overflow:'hidden',
+        transform:'translateY(100%)',
+        transition:'transform 0.25s cubic-bezier(0.32,0.72,0,1)',
+        pointerEvents:'auto',
+      });
+      // Handle bar
+      const handle = css(el('div'), {
+        width:'36px', height:'4px', borderRadius:'2px',
+        background:'#d1d5db', margin:'12px auto 8px',
+      });
+      sheet.appendChild(handle);
+      const body = el('div');
+      sheet.appendChild(body);
+      overlay.appendChild(sheet);
+      overlay.addEventListener('pointerdown', (e) => {
+        if (e.target === overlay) this._hideMobileModal();
+      });
+      root.appendChild(overlay);
+      this._mobileOverlay = overlay;
+      this._mobileSheet   = sheet;
+      this._mobileBody    = body;
+    }
+
+    _showMobileModal(seatEl, info) {
+      const {key, section, rowLabel, colLabel, label, catId, planStatus} = info;
+      const color = this._catColor(catId), name = this._catName(catId);
+      const cat   = this._catMap[catId];
+      const price = cat?.price != null
+        ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
+        : null;
+      const bs      = this._bookingStatus(key);
+      const sel     = this._selected.has(key);
+      const unavail = planStatus === 'disabled' || bs === 'booked' || bs === 'canceled' || bs === 'hold';
+
+      const barBg = unavail ? '#9ca3af' : color;
+      const statusLabel = unavail
+        ? (bs === 'hold' ? 'En attente' : 'Indisponible')
+        : name;
+
+      this._mobileBody.innerHTML = `
+        <div style="display:flex;padding:12px 8px 10px;gap:0">
+          ${[['Section', section||'—'], ['Rangée', rowLabel||'—'], ['Siège', colLabel||label||'—']].map(([k,v]) => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:0 10px">
+              <span style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
+              <span style="font-size:18px;font-weight:800;color:#111827;margin-top:3px">${v}</span>
+            </div>`).join('<div style="width:1px;background:#f3f4f6;margin:4px 0"></div>')}
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:${barBg};gap:12px">
+          <span style="font-size:17px;font-weight:700;color:#fff">${statusLabel}</span>
+          ${price && !unavail ? `<span style="font-size:18px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:10px;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))">
+          <button id="_mm-close" style="flex:1;padding:12px;border:none;border-radius:12px;background:#f3f4f6;font-size:15px;font-weight:600;color:#374151;cursor:pointer">Fermer</button>
+          ${!unavail ? `<button id="_mm-select" style="flex:2;padding:12px;border:none;border-radius:12px;background:${sel ? '#6b7280' : color};font-size:15px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+            ${sel ? '✕ Désélectionner' : '✓ Sélectionner'}
+          </button>` : ''}
+        </div>`;
+
+      this._mobileBody.querySelector('#_mm-close')?.addEventListener('click', () => this._hideMobileModal());
+      this._mobileBody.querySelector('#_mm-select')?.addEventListener('click', () => {
+        this._onSeatClick(key, planStatus, seatEl);
+        this._hideMobileModal();
+      });
+
+      this._mobileOverlay.style.visibility = 'visible';
+      this._mobileOverlay.style.opacity    = '1';
+      this._mobileSheet.style.transform    = 'translateY(0)';
+    }
+
+    _hideMobileModal() {
+      this._mobileOverlay.style.opacity = '0';
+      this._mobileSheet.style.transform = 'translateY(100%)';
+      setTimeout(() => { this._mobileOverlay.style.visibility = 'hidden'; }, 220);
+    }
+
+    _showSectionTooltip(anchorEl, section, catId) {
+      if (this._zoom > 0.6 || this._isMobile()) return;
+      const color = this._catColor(catId), name = this._catName(catId);
+      const cat   = this._catMap[catId];
+      const price = cat?.price != null
+        ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
+        : null;
+      this._tooltip.innerHTML = `
+        <div style="padding:10px 16px 8px;text-align:center">
+          <span style="font-size:18px;font-weight:800;color:#111827;letter-spacing:0.02em">${section}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:${color};margin-top:4px;gap:12px">
+          <span style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap">${name}</span>
+          ${price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
+        </div>`;
+      const cr = this._root.getBoundingClientRect();
+      const er = anchorEl.getBoundingClientRect();
+      const tw = this._tooltip.offsetWidth;
+      let left = er.left - cr.left + er.width / 2 - tw / 2;
+      let top  = er.top  - cr.top  - this._tooltip.offsetHeight - 8;
+      if (top < 4) top = er.top - cr.top + er.height + 8;
+      this._tooltip.style.left = Math.max(4, Math.min(left, this._cw - tw - 4)) + 'px';
+      this._tooltip.style.top  = top + 'px';
+      this._tooltip.style.visibility='visible';
+      this._tooltip.style.opacity='1';
+    }
 
     // ── microscope lens ──────────────────────────────────────────────────────────
 
@@ -590,125 +1068,144 @@
     }
 
     _drawOneCircle(section, selectedKeys) {
-      const selSet  = new Set(selectedKeys);
+      const selSet   = new Set(selectedKeys);
       const rootRect = this._root.getBoundingClientRect();
 
-      // Viewport positions (relative to root) of selected seats in this section
-      const positions = [];
-      for (const key of selectedKeys) {
-        const e = this._canvas.querySelector(`[data-sk="${CSS.escape(key)}"]`);
-        if (!e) continue;
+      // Collect all seats in this section with their exact viewport geometry
+      const seatData = [];
+      for (const e of this._canvas.querySelectorAll('[data-sk]')) {
+        if (this._seatSectionMap[e.dataset.sk] !== section) continue;
         const r = e.getBoundingClientRect();
-        positions.push({ x: r.left + r.width/2  - rootRect.left,
-                         y: r.top  + r.height/2 - rootRect.top });
+        seatData.push({
+          key:          e.dataset.sk,
+          cat:          e.dataset.cat,
+          x:            r.left + r.width/2  - rootRect.left,
+          y:            r.top  + r.height/2 - rootRect.top,
+          w:            r.width,
+          h:            r.height,
+          borderRadius: e.style.borderRadius || '50%',
+        });
       }
-      if (!positions.length) return;
+      if (!seatData.length) return;
 
-      // Centroid
+      // Centroid of selected seats
+      const selData = seatData.filter(s => selSet.has(s.key));
+      if (!selData.length) return;
       let cx = 0, cy = 0;
-      for (const p of positions) { cx += p.x; cy += p.y; }
-      cx /= positions.length; cy /= positions.length;
+      for (const s of selData) { cx += s.x; cy += s.y; }
+      cx /= selData.length; cy /= selData.length;
 
-      // Radius = max distance from centroid to any selected seat + half-seat + padding
-      const sampleEl = this._canvas.querySelector(`[data-sk="${CSS.escape(selectedKeys[0])}"]`);
-      const seatPx   = (sampleEl ? sampleEl.getBoundingClientRect().width : 0) / 2;
-      const pad      = 24;
-      let maxDist = 0;
-      for (const p of positions) {
-        maxDist = Math.max(maxDist, Math.sqrt((p.x-cx)**2 + (p.y-cy)**2));
-      }
-      const R = Math.max(50, maxDist + seatPx + pad);
+      // Radius = covers all selected seats + padding
+      const seatR  = selData[0].w / 2 || 8;
+      let maxDist  = 0;
+      for (const s of selData) maxDist = Math.max(maxDist, Math.sqrt((s.x-cx)**2 + (s.y-cy)**2));
+      const minR = this._isMobile() ? 22 : 28;
+      const pad  = this._isMobile() ? 8  : 10;
+      const R = Math.max(minR, maxDist + seatR + pad);
       const D = R * 2;
 
       const catColor = this._catColor(this._seatCatMap[selectedKeys[0]]);
 
-      // Circle container — clickable to zoom on this section
-      const circle = css(el('div'), {
+      // Outer ring: border + shadow + events. No clip so shadow/border aren't cut.
+      const circleOuter = css(el('div'), {
         position:'absolute',
-        left: (cx - R) + 'px', top: (cy - R) + 'px',
-        width: D+'px', height: D+'px',
+        left:(cx-R)+'px', top:(cy-R)+'px',
+        width:D+'px', height:D+'px',
+        borderRadius:'50%',
+        border:`3px solid ${catColor}`,
+        boxShadow:'0 4px 24px rgba(0,0,0,0.18)',
+        cursor:'pointer', pointerEvents:'auto',
+        zIndex: String(this._lensWrap.children.length + 1),
+        transition:'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
+      });
+      circleOuter.addEventListener('click', () => {
+        const rr = this._root.getBoundingClientRect();
+        const vr = this._viewport.getBoundingClientRect();
+        const vcx = cx - (vr.left - rr.left);
+        const vcy = cy - (vr.top  - rr.top);
+        this._zoomToLevel(1.5, vcx, vcy);
+      });
+      circleOuter.addEventListener('mouseenter', () => { circleOuter.style.border=`4px solid ${catColor}`; circleOuter.style.boxShadow=`0 8px 36px rgba(0,0,0,0.22), 0 0 0 3px ${catColor}33`; circleOuter.style.transform='scale(1.04)'; });
+      circleOuter.addEventListener('mouseleave', () => { circleOuter.style.border=`3px solid ${catColor}`; circleOuter.style.boxShadow='0 4px 24px rgba(0,0,0,0.18)'; circleOuter.style.transform='scale(1)'; });
+
+      // Inner content layer: reliably clips all content to circle shape.
+      // Slightly transparent (0.92) so overlapping circles show a subtle "behind glass" effect.
+      const circle = css(el('div'), {
+        position:'absolute', left:'0', top:'0',
+        width:'100%', height:'100%',
         borderRadius:'50%', overflow:'hidden',
-        border: `3px solid ${catColor}`,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-        background: 'rgba(255,255,255,0.9)',
-        cursor: 'pointer',
-        pointerEvents: 'auto',
+        clipPath:'circle(50% at 50% 50%)',
+        background:'rgba(255,255,255,0.92)',
+        pointerEvents:'none',
       });
-      circle.addEventListener('click', () => {
-        // Zoom to 150% centered on the centroid of selected seats
-        const rootRect = this._root.getBoundingClientRect();
-        let vx = 0, vy = 0, n = 0;
-        for (const key of selectedKeys) {
-          const e = this._canvas.querySelector(`[data-sk="${CSS.escape(key)}"]`);
-          if (!e) continue;
-          const r = e.getBoundingClientRect();
-          vx += r.left + r.width/2  - rootRect.left;
-          vy += r.top  + r.height/2 - rootRect.top;
-          n++;
+
+      // Redraw section background/border so the boundary is visible in the lens
+      let sectionEl = null;
+      this._canvas.querySelectorAll('[data-section]').forEach(e => {
+        if (e.dataset.section === section) sectionEl = e;
+      });
+      if (sectionEl) {
+        // For seatRow the background is on the card child, not the wrapper itself
+        const bgTarget = sectionEl.style.background ? sectionEl :
+          [...sectionEl.querySelectorAll('*')].find(
+            e => e.style.background &&
+                 e.style.background !== '#fff' &&
+                 e.style.position   !== 'absolute' &&
+                 !e.dataset.sk && !e.dataset.lensHide
+          );
+        if (bgTarget) {
+          const br   = bgTarget.getBoundingClientRect();
+          const origW = br.width;
+          const origH = br.height;
+          // Visual center in lens coords
+          const lcx = br.left + br.width/2  - rootRect.left - (cx - R);
+          const lcy = br.top  + br.height/2 - rootRect.top  - (cy - R);
+          const bgDiv = css(el('div'), {
+            position:        'absolute',
+            left:            (lcx - origW/2) + 'px',
+            top:             (lcy - origH/2) + 'px',
+            width:           origW + 'px',
+            height:          origH + 'px',
+            background:      bgTarget.style.background  || '',
+            border:          bgTarget.style.border       || '',
+            borderRadius:    bgTarget.style.borderRadius || '',
+            transform:       bgTarget.style.transform    || '',
+            transformOrigin: '50% 50%',
+          });
+          circle.appendChild(bgDiv);
         }
-        if (!n) return;
-        this._zoomToLevel(1.5, vx/n, vy/n);
-      });
+      }
 
-      // Clone canvas and align it exactly under the circle
-      // Transform formula (no extra magnification):
-      //   translate(panX - (cx-R),  panY - (cy-R)) scale(zoom)
-      // → the canvas content at root-position (px,py) appears at circle-pos (px-(cx-R), py-(cy-R))
-      // → centroid at root (cx,cy) → circle-pos (cx-(cx-R), cy-(cy-R)) = (R, R) ✓
-      const clone = this._canvas.cloneNode(true);
-      clone.style.pointerEvents   = 'none';
-      clone.style.transition      = 'none';
-      clone.style.transformOrigin = '0 0';
-      clone.style.transform =
-        `translate(${this._panX - (cx - R)}px,${this._panY - (cy - R)}px) scale(${this._zoom})`;
+      // Draw one plain div per seat — exact shape, no wrapper, no disc
+      for (const s of seatData) {
+        const isSel = selSet.has(s.key);
+        const c     = this._catColor(s.cat);
+        const dot   = css(el('div'), {
+          position:     'absolute',
+          left:         (s.x - (cx - R) - s.w/2) + 'px',
+          top:          (s.y - (cy - R) - s.h/2) + 'px',
+          width:        s.w + 'px',
+          height:       s.h + 'px',
+          borderRadius: s.borderRadius,
+          background:   isSel ? c : '#d1d5db',
+          boxShadow:    isSel ? `0 0 0 2px rgba(255,255,255,0.85), 0 0 0 4px ${rgba(c,0.35)}` : 'none',
+          zIndex:       isSel ? '2' : '1',
+          flexShrink:   '0',
+        });
+        circle.appendChild(dot);
+      }
 
-      // Hide wrapper containers of other sections (prevents background bleed)
-      clone.querySelectorAll('[data-section]').forEach(e => {
-        if (e.dataset.section !== section) e.style.visibility = 'hidden';
-      });
+      circleOuter.appendChild(circle);
+      this._lensWrap.appendChild(circleOuter);
 
-      // Style seats inside the clone
-      clone.querySelectorAll('[data-sk]').forEach(e => {
-        e.classList.remove('animate__animated','animate__pulse');
-        const key       = e.dataset.sk;
-        const inSection = this._seatSectionMap[key] === section;
-
-        if (selSet.has(key)) {
-          // Selected → solid color, slightly bigger via padding (no scale = no overlap)
-          const c = this._catColor(e.dataset.cat);
-          const orig = parseInt(e.style.width) || e.offsetWidth || 15;
-          const bigger = Math.round(orig * 1.18);
-          e.style.background = c;
-          e.style.width      = bigger + 'px';
-          e.style.height     = bigger + 'px';
-          e.style.minWidth   = bigger + 'px';
-          e.style.boxShadow  = `0 0 0 2px rgba(255,255,255,0.8), 0 0 0 4px ${rgba(c, 0.35)}`;
-          e.style.border     = 'none';
-          e.style.transform  = '';
-          e.style.zIndex     = '5';
-          e.innerHTML        = '';
-        } else if (inSection) {
-          // Same section, not selected → light gray
-          e.style.background = '#d1d5db';
-          e.style.boxShadow  = 'none';
-          e.style.border     = 'none';
-          e.style.transform  = '';
-          e.innerHTML        = '';
-        } else {
-          e.style.visibility = 'hidden';
-        }
-      });
-
-      circle.appendChild(clone);
-      this._lensWrap.appendChild(circle);
-
-      // Label below circle
+      // Label below
       const lbl = css(el('div'), {
         position:'absolute',
-        left: (cx - R) + 'px', top: (cy + R + 6) + 'px',
-        width: D + 'px', textAlign:'center',
-        fontSize:'12px', fontWeight:'700', color: catColor,
+        left:(cx-R)+'px', top:(cy+R+6)+'px',
+        width:D+'px', textAlign:'center',
+        fontSize:'12px', fontWeight:'700', color:catColor,
         textShadow:'0 1px 3px rgba(255,255,255,0.9)',
+        pointerEvents:'none',
       });
       lbl.textContent = section;
       this._lensWrap.appendChild(lbl);
@@ -857,7 +1354,7 @@
 
       if (planStatus!=='deleted') {
         s.addEventListener('mouseenter', () => {
-          if (this._zoom >= 0.5 && planStatus !== 'disabled') {
+          if (!this._isMobile() && this._zoom > 0.6 && planStatus !== 'disabled') {
             this._showTooltip(s, {...tipInfo, key, planStatus});
             if (this._selected.has(key)) {
               s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset';
@@ -867,7 +1364,7 @@
           }
         });
         s.addEventListener('mouseleave', () => {
-          this._hideTooltip();
+          if (this._zoom > 0.6) this._hideTooltip();
           s.style.filter = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
@@ -876,11 +1373,56 @@
         s.addEventListener('pointerdown', () => { this._didDrag=false; });
         s.addEventListener('pointerup', (e) => {
           e.stopPropagation();
-          this._onPointerUp();
-          this._onSeatClick(key, planStatus, s);
-          // Refresh tooltip immediately so "Sélectionné" state shows without needing a re-hover
-          if (!this._didDrag && this._zoom >= 1.0 && planStatus !== 'disabled') {
-            this._showTooltip(s, {...tipInfo, key, planStatus});
+          this._onPointerUp(e);
+          if (this._didDrag) return;
+          if (this._isMobile()) {
+            // Ignore tap si une animation est en cours
+            if (this._animFrame) return;
+            const vr = this._viewport.getBoundingClientRect();
+            const sr = s.getBoundingClientRect();
+            const cx = sr.left - vr.left + sr.width / 2;
+            const cy = sr.top  - vr.top  + sr.height / 2;
+            // Si déjà au zoom max (pinch/wheel), sauter directement au modal
+            if (this._mobileStep === 0 && this._zoom >= (this._maxWheelZoom || Infinity)) {
+              this._mobileStep = 0;
+              this._showMobileModal(s, {...tipInfo, key, planStatus});
+              return;
+            }
+            const step = this._mobileStep;
+            if (step === 0) {
+              // Étape 1 : zoom sur la section entière centrée
+              const card = s.closest('[data-section]');
+              if (card) {
+                const cardBr   = card.getBoundingClientRect();
+                const canvasBr = this._canvas.getBoundingClientRect();
+                const ox = (cardBr.left - canvasBr.left) / this._zoom;
+                const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
+                const ow = cardBr.width  / this._zoom;
+                const oh = cardBr.height / this._zoom;
+                const pad = 20;
+                const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+                const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+                const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+                this._mobileStep = 1;
+                this._animateZoom(z2, px2, py2, 350);
+              } else {
+                this._mobileStep = 2;
+                this._zoomToLevel(1.8, cx, cy);
+              }
+            } else if (step === 1) {
+              // Étape 2 : zoom sur le siège à 180%
+              this._mobileStep = 2;
+              this._zoomToLevel(1.8, cx, cy);
+            } else {
+              // Étape 3 : sélection via modal
+              this._mobileStep = 0;
+              this._showMobileModal(s, {...tipInfo, key, planStatus});
+            }
+          } else {
+            this._onSeatClick(key, planStatus, s);
+            if (this._zoom >= 1.49 && planStatus !== 'disabled') {
+              this._showTooltip(s, {...tipInfo, key, planStatus});
+            }
           }
         });
       }
@@ -901,10 +1443,28 @@
         e.stopPropagation();
         this._onPointerUp();
         if (this._didDrag) return;
-        // Compute canvas-local center of this element
+        if (this._isMobile()) {
+          // On mobile step 0 only: zoom into the section
+          if (this._mobileStep !== 0) return;
+          if (this._animFrame) return;
+          const br = el.getBoundingClientRect();
+          const vr = this._viewport.getBoundingClientRect();
+          const canvasBr = this._canvas.getBoundingClientRect();
+          const ox = (br.left - canvasBr.left) / this._zoom;
+          const oy = (br.top  - canvasBr.top)  / this._zoom;
+          const ow = br.width  / this._zoom;
+          const oh = br.height / this._zoom;
+          const pad = 32;
+          const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+          const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+          const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+          this._mobileStep = 1;
+          this._animateZoom(z2, px2, py2, 350);
+          return;
+        }
+        // Desktop: compute canvas-local center and zoom to 150%
         let ox = 0, oy = 0, cur = el;
         while (cur && cur !== this._canvas) { ox += cur.offsetLeft||0; oy += cur.offsetTop||0; cur = cur.offsetParent; }
-        // Convert to viewport coordinates (root-relative)
         const vx = this._panX + (ox + el.offsetWidth/2)  * this._zoom;
         const vy = this._panY + (oy + el.offsetHeight/2) * this._zoom;
         this._zoomToLevel(1.5, vx, vy);
@@ -939,6 +1499,7 @@
       });
       const lbl=css(el('span'),{fontWeight:'700',color,fontSize:(z.labelFontSize||11)+'px'});
       lbl.textContent=z.label||''; wrap.appendChild(lbl);
+      if (z.categoryId) wrap.dataset.plancat = z.categoryId;
       this._addSectionClick(wrap, z.label||'');
       this._canvas.appendChild(wrap);
     }
@@ -946,19 +1507,37 @@
     // ── freeZone ──────────────────────────────────────────────────────────────────
 
     _drawFreeZone(fz) {
+      // Icon ID → emoji (mirrors icons.ts FREE_ZONE_ICONS)
+      const ICON_MAP = {
+        none:'',
+        stage:'🎤', door:'🚪', toilets:'🚻', 'toilets-accessible':'♿',
+        restaurant:'🍽️', bar:'🍸', stairs:'🪜', 'stage-light':'💡', blocked:'🚫',
+      };
+      // Background with optional pattern (mirrors patternStyle from icons.ts)
+      const c = fz.color || '#6b7280';
+      let bgStyle = {};
+      if (fz.pattern === 'stripes') {
+        bgStyle = { backgroundColor: c+'12', backgroundImage: `repeating-linear-gradient(45deg,${c}55 0,${c}55 6px,transparent 6px,transparent 14px)` };
+      } else if (fz.pattern === 'dots') {
+        bgStyle = { backgroundColor: c+'12', backgroundImage: `radial-gradient(${c}99 1.4px,transparent 1.4px)`, backgroundSize:'10px 10px' };
+      } else {
+        bgStyle = { background: c };
+      }
       const wrap=css(el('div'),{
         position:'absolute', top:(fz.top||0)+'px', left:(fz.left||0)+'px',
         width:(fz.width||80)+'px', height:(fz.height||60)+'px',
-        background:fz.color||'#6b7280', border:`1px solid ${rgba(fz.color||'#6b7280',0.4)}`,
+        ...bgStyle,
+        border:`1px solid ${c}40`,
         borderRadius:'8px', display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center', textAlign:'center',
         gap:'2px', pointerEvents:'none',
       });
-      if (fz.icon) {
+      const iconChar = fz.icon ? (ICON_MAP[fz.icon] || fz.icon) : null;
+      if (iconChar) {
         const ic=css(el('span'),{fontSize:(fz.iconSize||Math.max(12,(fz.height||60)*0.32))+'px',lineHeight:'1'});
-        ic.textContent=fz.icon; wrap.appendChild(ic);
+        ic.textContent=iconChar; wrap.appendChild(ic);
       }
-      const lbl=css(el('span'),{fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.05em',color:fz.textColor||'#000',fontSize:(fz.labelFontSize||10)+'px'});
+      const lbl=css(el('span'),{fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.05em',color:fz.textColor||'#fff',fontSize:(fz.labelFontSize||10)+'px'});
       lbl.textContent=fz.label||''; wrap.appendChild(lbl);
       this._canvas.appendChild(wrap);
     }
@@ -973,21 +1552,27 @@
 
       const wrapper=css(el('div'),{position:'absolute',top:(row.top||0)+'px',left:(row.left||0)+'px',paddingTop:'14px'});
 
-      const badge=css(el('div'),{
-        position:'absolute', top:'-4px', left:'50%', transform:'translate(-50%,-50%)',
-        background:'#fff', border:`1px solid ${rgba(color,0.33)}`,
-        borderRadius:'999px', padding:'2px 12px',
-        fontWeight:'700', letterSpacing:'0.03em',
-        fontSize:(row.rowLabelFontSize||10)+'px', color,
-        boxShadow:'0 1px 2px rgba(0,0,0,0.06)', whiteSpace:'nowrap', zIndex:'2',
-      });
-      badge.textContent=row.section||this._catName(row.categoryId);
-      wrapper.appendChild(badge);
 
       const card=css(el('div'),{
+        position:'relative',
         background:rgba(color,0.08), border:`1px solid ${rgba(color,0.33)}`,
         borderRadius:'8px', padding:'6px',
       });
+      const centerBadge=css(el('div'),{
+        display:'none', position:'absolute', top:'-11px', left:'50%',
+        transform:'translateX(-50%)',
+        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
+        borderRadius:'999px', padding:'2px 10px',
+        fontWeight:'700', fontSize:'11px', color,
+        whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.10)',
+        letterSpacing:'0.03em',
+      });
+      centerBadge.textContent=row.section||this._catName(row.categoryId);
+      card.appendChild(centerBadge);
+      this._secBadges.push(centerBadge);
+      card.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
+      card.addEventListener('mouseleave', () => { centerBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       const colW=row.shape==='rounded' ? Math.round(ss*1.5) : ss;
       const grid=css(el('div'),{
@@ -1010,6 +1595,7 @@
         }
       }
       card.appendChild(grid); wrapper.appendChild(card);
+      wrapper.dataset.plancat = row.categoryId || '';
       this._addSectionClick(wrapper, row.section||this._catName(row.categoryId));
       this._canvas.appendChild(wrapper);
     }
@@ -1045,9 +1631,25 @@
         background:rgba(color,0.13), border:`2px solid ${rgba(color,0.53)}`,
         borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none',
       });
+      disc.dataset.lensHide = '1';
       const dlbl=css(el('span'),{color,fontSize:(t.tableLabelFontSize||12)+'px',fontWeight:'700',textAlign:'center',lineHeight:'1.2',pointerEvents:'none'});
       dlbl.textContent=t.section||this._catName(t.categoryId);
       disc.appendChild(dlbl); wrapper.appendChild(disc);
+      const tzCenterBadge=css(el('div'),{
+        display:'none', position:'absolute', top:'-11px', left:'50%',
+        transform:'translateX(-50%)',
+        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
+        borderRadius:'999px', padding:'2px 10px',
+        fontWeight:'700', fontSize:'11px', color,
+        whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.10)', letterSpacing:'0.03em',
+      });
+      tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
+      wrapper.appendChild(tzCenterBadge);
+      this._secBadges.push(tzCenterBadge);
+      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { tzCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId));
       this._canvas.appendChild(wrapper);
     }
@@ -1067,6 +1669,20 @@
         background:rgba(color,0.08), border:`1px solid ${rgba(color,0.33)}`,
         borderRadius:'10px', transform:`rotate(${ts.rotation||0}deg)`,
       });
+      const tsCenterBadge=css(el('div'),{
+        display:'none', position:'absolute', top:'-11px', left:'50%',
+        transform:'translateX(-50%)',
+        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
+        borderRadius:'999px', padding:'2px 10px',
+        fontWeight:'700', fontSize:'11px', color,
+        whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.10)', letterSpacing:'0.03em',
+      });
+      tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
+      wrapper.appendChild(tsCenterBadge);
+      this._secBadges.push(tsCenterBadge);
+      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { tsCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
         for (let ci=0;ci<tcols;ci++) {
@@ -1097,12 +1713,14 @@
             borderRadius:'50%', pointerEvents:'none',
             display:'flex', alignItems:'center', justifyContent:'center',
           });
+          disc.dataset.lensHide = '1';
           const tlbl=css(el('span'),{color,fontSize:(ts.tableLabelFontSize||12)+'px',fontWeight:'700',lineHeight:'1.2',pointerEvents:'none'});
           tlbl.textContent=`T${ti+1}`;
           disc.appendChild(tlbl); wrapper.appendChild(disc);
         }
       }
 
+      wrapper.dataset.plancat = ts.categoryId || '';
       this._addSectionClick(wrapper, ts.section||this._catName(ts.categoryId));
       this._canvas.appendChild(wrapper);
     }

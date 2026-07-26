@@ -1,0 +1,246 @@
+<!--
+
+    ____  _        _    ____ ___ ___
+   |  _ \| |      / \  / ___|_ _/ _ \
+   | |_) | |     / _ \| |    | | | | |
+   |  __/| |___ / ___ \ |___ | | |_| |
+   |_|   |_____/_/   \_\____|___\___/
+
+   Seating chart widget — https://placio.io
+   Drop-in iframe, zero dependencies.
+
+-->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placio</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #fff; }
+    #wrapper { display: flex; flex-direction: column; height: 100%; }
+    #chart { flex: 1; min-height: 0; }
+    #stats-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #fff;
+      border-top: 1px solid #e5e7eb;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-height: 48px;
+      font-family: system-ui, sans-serif;
+      transition: min-height 0.2s ease;
+    }
+    #stats-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      flex: 1;
+    }
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+      animation: fadeIn 0.18s ease;
+    }
+    .stat-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    #stats-empty {
+      font-size: 13px;
+      color: #d1d5db;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <div id="chart"></div>
+    <div id="stats-bar">
+      <div id="stats-info"><span id="stats-empty">Aucun siège sélectionné</span></div>
+    </div>
+  </div>
+
+  <script src="/place-render.js"></script>
+  <script>
+  (function () {
+    const params     = new URLSearchParams(location.search);
+    const key        = params.get('key');
+    const eventId    = params.get('event');
+    const withCheckout = params.get('checkout') === '1';
+    const API_BASE   = location.origin;
+
+    let renderer     = null;
+    let sessionToken = null;
+    let holdToken    = null;
+    let placioEventId = null;
+    let categoryPrices = {};
+
+    // ── postMessage helpers ──────────────────────────────────────────────────
+
+    function emit(type, payload) {
+      window.parent.postMessage({ type: 'placio:' + type, ...(payload || {}) }, '*');
+    }
+
+    window.addEventListener('message', (e) => {
+      const { type, ...data } = e.data || {};
+      if (type === 'placio:setCategoryPrices') {
+        categoryPrices = data.prices || {};
+        if (renderer) {
+          for (const [catId, info] of Object.entries(categoryPrices)) {
+            if (renderer._catMap[catId]) {
+              renderer._catMap[catId].price    = info.price;
+              renderer._catMap[catId].currency = info.currency;
+            }
+          }
+          renderer._drawAll();
+        }
+      }
+      if (type === 'placio:getSelectedSeats') {
+        emit('selectedSeats', { seats: renderer ? renderer.getSelectedSeats() : [] });
+      }
+    });
+
+    // ── stats bar + checkout ─────────────────────────────────────────────────
+
+    const statsInfo  = document.getElementById('stats-info');
+    const statsEmpty = document.getElementById('stats-empty');
+
+    function updateStatsBar() {
+      if (!renderer) return;
+      const seats = renderer.getSelectedSeats();
+
+      const bycat = {};
+      for (const s of seats) {
+        const id = s.catId || '__none__';
+        if (!bycat[id]) bycat[id] = { name: s.catName, color: s.catColor, count: 0 };
+        bycat[id].count++;
+      }
+
+      const entries = Object.values(bycat);
+      statsInfo.innerHTML = '';
+      if (!entries.length) {
+        statsInfo.appendChild(statsEmpty);
+      } else {
+        for (const { name, color, count } of entries) {
+          const pill  = document.createElement('span'); pill.className = 'stat-pill';
+          const dot   = document.createElement('span'); dot.className = 'stat-dot';
+          dot.style.background = color;
+          dot.style.boxShadow  = `0 0 0 2.5px ${color}40`;
+          const label = document.createElement('span');
+          label.textContent = `${name || 'Catégorie'} — ${count} siège${count > 1 ? 's' : ''}`;
+          pill.appendChild(dot);
+          pill.appendChild(label);
+          statsInfo.appendChild(pill);
+        }
+      }
+    }
+
+    // ── init ─────────────────────────────────────────────────────────────────
+
+    async function init() {
+      document.getElementById('chart').innerHTML =
+        '<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#9ca3af;font-size:14px;font-family:system-ui">Chargement…</div>';
+
+      try {
+        // Session
+        const sessionRes = await fetch(`${API_BASE}/api/public/events/${eventId}/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ publicKeyId: key }),
+        });
+        if (!sessionRes.ok) throw new Error('Clé publique invalide ou événement introuvable');
+        const sessionData = await sessionRes.json();
+        sessionToken   = sessionData.sessionToken;
+        holdToken      = sessionData.holdToken;
+        placioEventId  = sessionData.eventId || eventId;
+
+        // Event data
+        const eventRes = await fetch(`${API_BASE}/api/widget/events/${placioEventId}`, {
+          headers: { Authorization: `Widget ${sessionToken}` },
+        });
+        if (!eventRes.ok) throw new Error("Impossible de charger l'événement");
+        const eventData = await eventRes.json();
+
+        // Render
+        document.getElementById('chart').innerHTML = '';
+        renderer = new PlaceRender({
+          container: document.getElementById('chart'),
+          data: {
+            chartObjects:   eventData.chartObjects   || [],
+            categories:     eventData.categories     || [],
+            seats:          eventData.seats           || [],
+            categoryPrices: categoryPrices,
+          },
+          onSeatSelected:   (seat) => { emit('seatSelected',   { seat }); },
+          onSeatDeselected: (seat) => { emit('seatDeselected', { seat }); },
+        });
+        // ── selection sync (Mercure broadcast) ──────────────────────────────────
+        let _prevSeatKeys = new Set();
+
+        async function syncSelection() {
+          if (!sessionToken || !placioEventId) return;
+          const current = new Set(renderer.getSelectedSeats().map(s => s.seatKey));
+          const updates = [];
+          for (const k of current) {
+            if (!_prevSeatKeys.has(k)) updates.push({ seatKey: k, status: 'hold' });
+          }
+          for (const k of _prevSeatKeys) {
+            if (!current.has(k)) updates.push({ seatKey: k, status: 'available' });
+          }
+          _prevSeatKeys = current;
+          if (!updates.length) return;
+          try {
+            await fetch(`${API_BASE}/api/widget/events/${placioEventId}/sync-selection`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Widget ${sessionToken}` },
+              body: JSON.stringify(updates),
+            });
+          } catch (_) {}
+        }
+
+        renderer._onSelectionChange = () => {
+          const seats = renderer.getSelectedSeats();
+          emit('selectionChange', { seats });
+          updateStatsBar();
+          syncSelection();
+        };
+        renderer.render();
+
+        // Mercure — parsing: backend sends [{seatKey, status}, ...]
+        if (eventData.mercurePublicUrl && placioEventId) {
+          const topic = encodeURIComponent(`event/${placioEventId}/seats`);
+          const es = new EventSource(`${eventData.mercurePublicUrl}?topic=${topic}`);
+          es.onmessage = (e) => {
+            try {
+              const changes = JSON.parse(e.data);
+              if (renderer && Array.isArray(changes)) {
+                renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
+              }
+            } catch (_) {}
+          };
+        }
+
+        emit('ready', { sessionToken, holdToken, eventId: placioEventId });
+
+      } catch (err) {
+        document.getElementById('chart').innerHTML =
+          `<div style="padding:2rem;color:#ef4444;font-family:system-ui;font-size:14px">${err.message}</div>`;
+        emit('error', { message: err.message });
+      }
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

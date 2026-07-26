@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Chart;
 use App\Entity\Event;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -24,6 +25,16 @@ class EventRepository extends ServiceEntityRepository
     public function findByIdentifier(string $identifier): ?Event
     {
         return $this->findOneBy(['identifier' => $identifier]);
+    }
+
+    public function countByChart(Chart $chart): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.chart = :chart')
+            ->setParameter('chart', $chart)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }
 

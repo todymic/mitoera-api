@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Chart;
 use App\Entity\Category;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -24,6 +25,17 @@ class CategoryRepository extends ServiceEntityRepository
     public function findByKey(string $key): ?Category
     {
         return $this->findOneBy(['key' => $key]);
+    }
+
+    /** @return Category[] */
+    public function findAllByChart(Chart $chart): array
+    {
+        return $this->findBy(['chart' => $chart], ['name' => 'ASC']);
+    }
+
+    public function findByChartAndKey(Chart $chart, string $key): ?Category
+    {
+        return $this->findOneBy(['chart' => $chart, 'key' => $key]);
     }
 }
 

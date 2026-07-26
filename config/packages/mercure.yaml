@@ -1,0 +1,9 @@
+mercure:
+    hubs:
+        default:
+            # Symfony CLI injecte MERCURE_URL=tcp://... (protocole interne), on reconstruit l'URL HTTP
+            url: 'http://%env(MERCURE_HOST)%:%env(MERCURE_PORT)%/.well-known/mercure'
+            public_url: 'http://%env(MERCURE_HOST)%:%env(MERCURE_PORT)%/.well-known/mercure'
+            jwt:
+                secret: '%env(MERCURE_JWT_SECRET)%'
+                publish: '*'

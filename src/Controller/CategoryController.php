@@ -55,6 +55,7 @@ class CategoryController extends AbstractController
             $data['name'] ?? '',
             $data['key'] ?? '',
             $data['color'] ?? '',
+            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->create($categoryRequest);
@@ -98,6 +99,7 @@ class CategoryController extends AbstractController
             $data['name'] ?? '',
             $data['key'] ?? '',
             $data['color'] ?? '',
+            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->update($id, $categoryRequest);

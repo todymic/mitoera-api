@@ -12,6 +12,9 @@ class ChartResponse
         public string $slug,
         public array $objects,
         public \DateTimeImmutable $updatedAt,
+        public string $status = 'draft',
+        public bool $pendingChanges = false,
+        public ?array $publishedSnapshot = null,
     ) {
     }
 }

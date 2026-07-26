@@ -34,6 +34,22 @@ class BookingService
         $this->holdDurationMinutes = $holdDurationMinutes;
     }
 
+    public function publishRawSeatUpdates(Uuid $eventId, array $updates): void
+    {
+        if (empty($updates)) {
+            return;
+        }
+
+        $payload = json_encode($updates);
+
+        $this->redis->publish("seats:{$eventId}", $payload);
+
+        $this->hub->publish(new Update(
+            "event/{$eventId}/seats",
+            $payload,
+        ));
+    }
+
     private function publishSeatChanges(Uuid $eventId, array $seats): void
     {
         $changes = array_map(fn(EventSeat $s) => [
@@ -63,8 +79,16 @@ class BookingService
         }
 
         $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($eventId, $seatKeys);
-        if (count($seats) !== count($seatKeys)) {
-            throw new ResourceNotFoundException('One or more seats not found');
+
+        // Auto-create missing EventSeat rows (plan may have been updated after event was linked)
+        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
+        foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
+            $seat = new EventSeat();
+            $seat->setEvent($event);
+            $seat->setSeatKey($missingKey);
+            $seat->setStatus(SeatStatus::AVAILABLE);
+            $this->em->persist($seat);
+            $seats[] = $seat;
         }
 
         $holdDurationSeconds = $this->holdDurationMinutes * 60;

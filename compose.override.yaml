@@ -5,3 +5,7 @@ services:
     ports:
       - "5432"
 ###< doctrine/doctrine-bundle ###
+
+###> symfony/mercure-bundle ###
+# Mercure est géré dans docker-compose.yml (instance partagée port 3010)
+###< symfony/mercure-bundle ###

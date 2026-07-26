@@ -99,6 +99,30 @@ class WidgetBookingController extends AbstractController
         }
     }
 
+    /**
+     * Publie l'état de sélection en temps réel sur Mercure sans toucher la DB.
+     * Body: [{ seatKey: string, status: 'selected'|'available' }]
+     */
+    #[Route('/sync-selection', methods: ['POST'])]
+    public function syncSelection(string $eventId, Request $request): JsonResponse
+    {
+        /** @var WidgetSessionUser $user */
+        $user = $this->getUser();
+
+        if ($user->eventId !== $eventId) {
+            return $this->json(['error' => 'Token not valid for this event'], Response::HTTP_FORBIDDEN);
+        }
+
+        $updates = json_decode($request->getContent(), true);
+        if (!is_array($updates)) {
+            return $this->json(['error' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->bookingService->publishRawSeatUpdates(Uuid::fromString($eventId), $updates);
+
+        return $this->json(['ok' => true]);
+    }
+
     #[Route('/book', methods: ['POST'])]
     #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\RequestBody(

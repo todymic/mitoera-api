@@ -8,6 +8,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
 #[ORM\Table(name: 'categories')]
+#[ORM\UniqueConstraint(name: 'uq_category_chart_key', columns: ['chart_id', 'key'])]
 class Category
 {
     #[ORM\Id]
@@ -17,7 +18,7 @@ class Category
     #[ORM\Column(type: 'string', nullable: false)]
     private string $name;
 
-    #[ORM\Column(type: 'string', unique: true, nullable: false)]
+    #[ORM\Column(type: 'string', nullable: false)]
     private string $key;
 
     #[ORM\Column(type: 'string', nullable: false)]
@@ -25,6 +26,10 @@ class Category
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
+
+    #[ORM\ManyToOne(targetEntity: Chart::class)]
+    #[ORM\JoinColumn(name: 'chart_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+    private ?Chart $chart = null;
 
     public function __construct()
     {
@@ -73,6 +78,17 @@ class Category
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function getChart(): ?Chart
+    {
+        return $this->chart;
+    }
+
+    public function setChart(?Chart $chart): self
+    {
+        $this->chart = $chart;
+        return $this;
     }
 }
 

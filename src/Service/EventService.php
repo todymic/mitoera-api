@@ -163,12 +163,12 @@ class EventService
         $this->em->flush();
 
         try {
+            $changes = array_map(fn(string $k) => ['seatKey' => $k, 'status' => $status], $seatKeys);
             $this->hub->publish(new Update(
                 "event/{$eventId}/seats",
-                json_encode(['seatKeys' => $seatKeys, 'status' => $status]),
+                json_encode($changes),
             ));
         } catch (\Throwable $e) {
-            // Ne pas bloquer la réponse si Mercure est indisponible
             error_log('[Mercure] Failed to publish: ' . $e->getMessage());
         }
     }

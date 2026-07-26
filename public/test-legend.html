@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Legend Mobile</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f0f0f0; }
+  #chart { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<script src="/place-render.js"></script>
+<script>
+const mockData = {
+  chartObjects: [
+    {
+      _type: 'zone',
+      key: 'zone-1',
+      label: 'Fosse',
+      x: 50, y: 50, width: 200, height: 120,
+      categoryId: 'cat-1',
+    },
+    {
+      _type: 'seatRow',
+      key: 'row-A',
+      section: 'Tribune A',
+      label: 'Tribune A',
+      x: 50, y: 220, width: 260, height: 80,
+      rows: 3, cols: 8,
+      categoryId: 'cat-2',
+    },
+    {
+      _type: 'zone',
+      key: 'zone-2',
+      label: 'Carré Or',
+      x: 320, y: 50, width: 120, height: 120,
+      categoryId: 'cat-3',
+    },
+  ],
+  categories: [
+    { id: 'cat-1', name: 'Fosse', color: '#ef4444', price: 15000, currency: 'AR' },
+    { id: 'cat-2', name: 'Tribune', color: '#3b82f6', price: 8000, currency: 'AR' },
+    { id: 'cat-3', name: 'Carré Or', color: '#f59e0b', price: 25000, currency: 'AR' },
+  ],
+  seats: [],
+  categoryPrices: {
+    'cat-1': { price: 15000, currency: 'AR' },
+    'cat-2': { price: 8000,  currency: 'AR' },
+    'cat-3': { price: 25000, currency: 'AR' },
+  },
+};
+
+const r = new PlaceRender({
+  container: document.getElementById('chart'),
+  data: mockData,
+  onSeatSelected: s => console.log('selected', s),
+  onSeatDeselected: s => console.log('deselected', s),
+});
+r.render();
+</script>
+</body>
+</html>

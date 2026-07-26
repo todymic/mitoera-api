@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Widget Iframe</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f0f0f0; padding: 20px; }
+  h2 { margin-bottom: 12px; color: #111; }
+  #chart { width: 100%; height: 600px; border-radius: 12px; overflow: hidden; }
+  #log { margin-top: 16px; background: #1e1e1e; color: #a3e635; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; max-height: 150px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<h2>Placio Widget — iframe</h2>
+<div id="chart"></div>
+<div id="log">Logs…</div>
+
+<script src="/placio-widget.js"></script>
+<script>
+const log = (msg) => {
+  const el = document.getElementById('log');
+  el.textContent += '\n' + new Date().toISOString().slice(11,19) + ' ' + msg;
+  el.scrollTop = el.scrollHeight;
+};
+
+const chart = new Placio.SeatingChart({
+  divId: 'chart',
+  workspaceKey: 'pk_pub_3d838b72',
+  event: '16',
+  onSeatSelected:   (s) => log('✓ selected: ' + s.seatKey + ' (' + s.catName + ')'),
+  onSeatDeselected: (s) => log('✕ deselected: ' + s.seatKey),
+  onCheckout: (seats) => {
+    log('🛒 checkout: ' + seats.length + ' siège(s)');
+    log('   session: ' + chart.getSessionToken()?.slice(0,20) + '…');
+    log('   hold:    ' + chart.getHoldToken()?.slice(0,20) + '…');
+  },
+});
+chart.render();
+</script>
+</body>
+</html>
