@@ -11,6 +11,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -115,9 +117,16 @@ class ChartController extends AbstractController
     #[OA\Tag(name: 'Charts')]
     #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Modifications marquées comme publiées')]
-    public function publish(string $id): JsonResponse
+    public function publish(string $id, HubInterface $hub): JsonResponse
     {
-        return $this->json($this->chartService->clearPendingChanges($id));
+        $response = $this->chartService->clearPendingChanges($id);
+
+        $hub->publish(new Update(
+            "chart/{$response->slug}",
+            json_encode(['type' => 'chartUpdated', 'chartKey' => $response->slug]),
+        ));
+
+        return $this->json($response);
     }
 
     #[Route('/{id}/status', methods: ['PATCH'])]

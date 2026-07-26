@@ -195,15 +195,25 @@
         };
         renderer.render();
 
-        // Mercure — parsing: backend sends [{seatKey, status}, ...]
+        // Mercure — seat status updates
         if (eventData.mercurePublicUrl && placioEventId) {
-          const topic = encodeURIComponent(`event/${placioEventId}/seats`);
-          const es = new EventSource(`${eventData.mercurePublicUrl}?topic=${topic}`);
+          const seatTopic  = encodeURIComponent(`event/${placioEventId}/seats`);
+          const chartTopic = encodeURIComponent(`chart/${key}`);
+          const es = new EventSource(
+            `${eventData.mercurePublicUrl}?topic=${seatTopic}&topic=${chartTopic}`
+          );
           es.onmessage = (e) => {
             try {
-              const changes = JSON.parse(e.data);
-              if (renderer && Array.isArray(changes)) {
-                renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
+              const data = JSON.parse(e.data);
+              // Chart published → full reload
+              if (data.type === 'chartUpdated') {
+                if (renderer) { renderer.destroy(); renderer = null; }
+                init();
+                return;
+              }
+              // Seat status changes
+              if (renderer && Array.isArray(data)) {
+                renderer.updateSeats(data.map(c => ({ seatKey: c.seatKey, status: c.status })));
               }
             } catch (_) {}
           };
