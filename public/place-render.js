@@ -518,16 +518,30 @@
       btn.addEventListener('mouseenter', () => btn.style.background = '#ffffff');
       btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(255,255,255,0.92)');
       const enterFs = () => {
-        const p = root.requestFullscreen
-          ? root.requestFullscreen({ navigationUI: 'hide' })
-          : root.webkitRequestFullscreen
-          ? (root.webkitRequestFullscreen(), Promise.resolve())
-          : Promise.reject(new Error('Fullscreen not supported'));
-        p.catch(() => {});
+        if (this._isMobile()) {
+          const p = root.requestFullscreen
+            ? root.requestFullscreen({ navigationUI: 'hide' })
+            : root.webkitRequestFullscreen
+            ? (root.webkitRequestFullscreen(), Promise.resolve())
+            : Promise.reject(new Error('not supported'));
+          p.catch(() => {});
+        } else {
+          window.parent.postMessage({ type: 'placio:requestFullscreen' }, '*');
+          this._isFullscreen = true;
+          setFs(true);
+          fadeAndRender(true);
+        }
       };
       const exitFs = () => {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        if (this._isMobile()) {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else {
+          window.parent.postMessage({ type: 'placio:exitFullscreen' }, '*');
+          this._isFullscreen = false;
+          setFs(false);
+          fadeAndRender(false);
+        }
       };
       const fadeAndRender = (inFs) => {
         root.style.transition = 'opacity 300ms ease';

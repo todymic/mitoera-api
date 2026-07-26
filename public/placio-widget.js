@@ -106,6 +106,17 @@
             if (this.onCheckout) this.onCheckout(data.seats || []);
             break;
 
+          case 'placio:requestFullscreen':
+            this._savedIframeStyle = iframe.style.cssText;
+            iframe.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;border:none;display:block;border-radius:0;';
+            document.body.style.overflow = 'hidden';
+            break;
+
+          case 'placio:exitFullscreen':
+            iframe.style.cssText = this._savedIframeStyle || '';
+            document.body.style.overflow = '';
+            break;
+
           case 'placio:error':
             console.error('[Placio]', data.message);
             break;
