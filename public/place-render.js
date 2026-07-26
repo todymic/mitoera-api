@@ -518,44 +518,40 @@
       btn.addEventListener('mouseenter', () => btn.style.background = '#ffffff');
       btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(255,255,255,0.92)');
       const enterFs = () => {
-        // Save original DOM position so we can restore it on exit
-        this._fsParent      = root.parentNode;
-        this._fsNextSibling = root.nextSibling;
-        this._fsSavedStyle  = root.getAttribute('style') || '';
-        // Move to body to escape any ancestor overflow/transform constraints
-        document.body.appendChild(root);
-        Object.assign(root.style, {
-          position:'fixed', inset:'0', zIndex:'99999',
-          width:'100vw', height:'100vh', borderRadius:'0',
-        });
-        this._isFullscreen = true;
-        setFs(true);
-        this._cw = root.clientWidth;
-        this._ch = root.clientHeight;
-        const {w,h,minX,minY} = this._bbox;
-        const scale = 1.5;
-        const px = -minX*scale + (this._cw - w*scale)/2;
-        const py = -minY*scale + (this._ch - h*scale)/2;
-        this._animateZoom(scale, px, py, 380);
-        if (this._zoomOutBtn) this._zoomOutBtn.style.display = 'none';
-        this._updateMinimap();
+        const p = root.requestFullscreen
+          ? root.requestFullscreen({ navigationUI: 'hide' })
+          : root.webkitRequestFullscreen
+          ? (root.webkitRequestFullscreen(), Promise.resolve())
+          : Promise.reject(new Error('Fullscreen not supported'));
+        p.catch(() => {});
       };
       const exitFs = () => {
-        // Restore original inline style and DOM position
-        root.setAttribute('style', this._fsSavedStyle);
-        if (this._fsNextSibling) {
-          this._fsParent.insertBefore(root, this._fsNextSibling);
-        } else {
-          this._fsParent.appendChild(root);
-        }
-        this._isFullscreen = false;
-        setFs(false);
-        this._cw = root.clientWidth;
-        this._ch = root.clientHeight;
-        this._fitToContainer();
-        this._updateZoomOutBtn();
-        this._updateMinimap();
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       };
+      const onFsChange = () => {
+        const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        this._isFullscreen = inFs;
+        setFs(inFs);
+        requestAnimationFrame(() => {
+          this._cw = root.clientWidth;
+          this._ch = root.clientHeight;
+          if (inFs) {
+            const {w,h,minX,minY} = this._bbox;
+            const scale = 1.5;
+            const px = -minX*scale + (this._cw - w*scale)/2;
+            const py = -minY*scale + (this._ch - h*scale)/2;
+            this._animateZoom(scale, px, py, 380);
+            if (this._zoomOutBtn) this._zoomOutBtn.style.display = 'none';
+          } else {
+            this._fitToContainer();
+            this._updateZoomOutBtn();
+          }
+          this._updateMinimap();
+        });
+      };
+      document.addEventListener('fullscreenchange', onFsChange);
+      document.addEventListener('webkitfullscreenchange', onFsChange);
       btn.addEventListener('click', () => {
         this._isFullscreen ? exitFs() : enterFs();
       });
