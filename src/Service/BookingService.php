@@ -123,8 +123,14 @@ class BookingService
         }
 
         $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($eventId, $seatKeys);
-        if (count($seats) !== count($seatKeys)) {
-            throw new ResourceNotFoundException('One or more seats not found');
+        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
+        foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
+            $seat = new EventSeat();
+            $seat->setEvent($event);
+            $seat->setSeatKey($missingKey);
+            $seat->setStatus(SeatStatus::AVAILABLE);
+            $this->em->persist($seat);
+            $seats[] = $seat;
         }
 
         foreach ($seats as $seat) {
