@@ -490,7 +490,10 @@
       if (!this._dragging) return;
       const dx = e.clientX - this._dragStart.x - this._panX;
       const dy = e.clientY - this._dragStart.y - this._panY;
-      if (Math.abs(dx)+Math.abs(dy) > (this._isMobile() ? 14 : 8)) { this._didDrag = true; }
+      if (Math.abs(dx)+Math.abs(dy) > (this._isMobile() ? 14 : 8)) {
+        if (!this._didDrag) this._hideTooltip();
+        this._didDrag = true;
+      }
       this._panX = e.clientX - this._dragStart.x;
       this._panY = e.clientY - this._dragStart.y;
       this._applyTransform();
@@ -635,7 +638,7 @@
 
     _updateZoomOutBtn() {
       if (!this._zoomOutBtn) return;
-      const show = !this._isFullscreen && this._zoom > 0.55;
+      const show = !this._isFullscreen && (this._mobileStep >= 1 || this._zoom > 0.55);
       this._zoomOutBtn.style.opacity = show ? '1' : '0';
       this._zoomOutBtn.style.pointerEvents = show ? '' : 'none';
     }
@@ -828,6 +831,8 @@
       let left=er.left-cr.left+er.width/2-90;
       let top=er.top-cr.top-this._tooltip.offsetHeight-8;
       if (top<4) top=er.top-cr.top+er.height+8;
+      this._tooltip.style.borderRadius = '12px';
+      this._tooltip.style.minWidth = '180px';
       this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-188))+'px';
       this._tooltip.style.top  = top+'px';
       this._tooltip.style.visibility='visible';
@@ -1075,20 +1080,20 @@
         ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
         : null;
       this._tooltip.innerHTML = `
-        <div style="padding:10px 16px 6px;text-align:center">
-          <span style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em">Section</span><br>
-          <span style="font-size:20px;font-weight:800;color:#111827;letter-spacing:0.02em">${section}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:${color};margin-top:4px;gap:12px">
-          <span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${name}</span>
-          ${price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px 8px 12px;white-space:nowrap">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:13px;font-weight:700;color:#111827">${section}</span>
+          <span style="font-size:12px;color:#d1d5db">·</span>
+          <span style="font-size:13px;font-weight:500;color:${color}">${name}</span>
+          ${price ? `<span style="font-size:12px;font-weight:600;color:#6b7280;margin-left:2px">${price}</span>` : ''}
         </div>`;
+      this._tooltip.style.borderRadius = '999px';
+      this._tooltip.style.minWidth = 'auto';
       this._tooltip.style.visibility = 'visible';
       this._tooltip.style.opacity = '1';
       const tw = this._tooltip.offsetWidth;
-      const th = this._tooltip.offsetHeight;
-      this._tooltip.style.left = Math.max(4, (this._cw - tw) / 2) + 'px';
-      this._tooltip.style.top  = Math.max(8, this._ch - th - 20) + 'px';
+      this._tooltip.style.left = Math.max(8, (this._cw - tw) / 2) + 'px';
+      this._tooltip.style.top  = '12px';
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
