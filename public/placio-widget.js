@@ -106,23 +106,46 @@
             if (this.onCheckout) this.onCheckout(data.seats || []);
             break;
 
-          case 'placio:requestFullscreen':
-            this._fsParent      = iframe.parentNode;
-            this._fsNextSibling = iframe.nextSibling;
+          case 'placio:requestFullscreen': {
             this._savedIframeStyle = iframe.style.cssText;
-            document.body.appendChild(iframe);
+            // Neutralize ancestor CSS that confines position:fixed to a sub-rect
+            // (transform / will-change / filter / contain all create a new containing block)
+            this._fsAffectedEls = [];
+            let fsEl = iframe.parentElement;
+            while (fsEl && fsEl !== document.documentElement) {
+              const cs = getComputedStyle(fsEl);
+              if (cs.transform !== 'none' || cs.filter !== 'none' || cs.perspective !== 'none' || (cs.willChange && cs.willChange !== 'auto')) {
+                this._fsAffectedEls.push({
+                  el: fsEl,
+                  transform:  fsEl.style.transform,
+                  filter:     fsEl.style.filter,
+                  perspective:fsEl.style.perspective,
+                  willChange: fsEl.style.willChange,
+                });
+                fsEl.style.transform   = 'none';
+                fsEl.style.filter      = 'none';
+                fsEl.style.perspective = 'none';
+                fsEl.style.willChange  = 'auto';
+              }
+              fsEl = fsEl.parentElement;
+            }
             iframe.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;border:none;display:block;border-radius:0;';
             document.body.style.overflow = 'hidden';
             break;
+          }
 
-          case 'placio:exitFullscreen':
-            if (this._fsParent) {
-              this._fsParent.insertBefore(iframe, this._fsNextSibling || null);
-              this._fsParent = null;
+          case 'placio:exitFullscreen': {
+            for (const s of (this._fsAffectedEls || [])) {
+              s.el.style.transform   = s.transform;
+              s.el.style.filter      = s.filter;
+              s.el.style.perspective = s.perspective;
+              s.el.style.willChange  = s.willChange;
             }
+            this._fsAffectedEls = [];
             iframe.style.cssText = this._savedIframeStyle || '';
             document.body.style.overflow = '';
             break;
+          }
 
           case 'placio:error':
             console.error('[Placio]', data.message);
