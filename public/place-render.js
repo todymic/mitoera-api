@@ -1616,6 +1616,9 @@
         width:sz+'px', height:sz+'px', transform:`rotate(${t.rotation||0}deg)`,
       });
 
+      // seatsLayer: separate container for seats+disc so the badge (sibling) isn't blurred
+      const tzSeatsLayer=css(el('div'),{position:'absolute',inset:'0',pointerEvents:'none'});
+
       for (let i=0;i<count;i++) {
         if (disabled.includes(i)) continue;
         const angle=(2*Math.PI*i)/count - Math.PI/2;
@@ -1625,8 +1628,8 @@
         const seat=this._makeSeat(key,t.categoryId,'enabled',ss,'round',String(i+1),{
           section:t.section||this._catName(t.categoryId), rowLabel:'', colLabel:String(i+1), label:String(i+1), catId:t.categoryId,
         });
-        css(seat,{position:'absolute',left:cx+'px',top:cy+'px'});
-        wrapper.appendChild(seat);
+        css(seat,{position:'absolute',left:cx+'px',top:cy+'px',pointerEvents:'auto'});
+        tzSeatsLayer.appendChild(seat);
       }
 
       const disc=css(el('div'),{
@@ -1638,7 +1641,9 @@
       disc.dataset.lensHide = '1';
       const dlbl=css(el('span'),{color,fontSize:(t.tableLabelFontSize||12)+'px',fontWeight:'700',textAlign:'center',lineHeight:'1.2',pointerEvents:'none'});
       dlbl.textContent=t.section||this._catName(t.categoryId);
-      disc.appendChild(dlbl); wrapper.appendChild(disc);
+      disc.appendChild(dlbl); tzSeatsLayer.appendChild(disc);
+      wrapper.appendChild(tzSeatsLayer);
+
       const tzCenterBadge=css(el('div'),{
         display:'none', position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
@@ -1649,10 +1654,10 @@
         textAlign:'center',
       });
       tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
-      // _seatsEl=null: wrapper contains the badge itself, blurring it would blur the badge too
+      tzCenterBadge._seatsEl=tzSeatsLayer;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; tzSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tzCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId));
@@ -1684,10 +1689,14 @@
         textAlign:'center',
       });
       tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
-      // _seatsEl=null: wrapper contains the badge itself, blurring it would blur the badge too
       wrapper.appendChild(tsCenterBadge);
       this._secBadges.push(tsCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+
+      // seatsLayer: separate container so badge (sibling) isn't blurred
+      const tsSeatsLayer=css(el('div'),{position:'absolute',inset:'0',pointerEvents:'none'});
+      tsCenterBadge._seatsEl=tsSeatsLayer;
+
+      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; tsSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tsCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
@@ -1705,8 +1714,8 @@
             const seat=this._makeSeat(key,ts.categoryId,ps,ss,'round',String(si+1),{
               section:ts.section||this._catName(ts.categoryId), rowLabel:`T${ti+1}`, colLabel:String(si+1), label:String(si+1), catId:ts.categoryId,
             });
-            css(seat,{position:'absolute',left:cx+'px',top:cy+'px'});
-            wrapper.appendChild(seat);
+            css(seat,{position:'absolute',left:cx+'px',top:cy+'px',pointerEvents:'auto'});
+            tsSeatsLayer.appendChild(seat);
           }
 
           // Table disc
@@ -1722,9 +1731,10 @@
           disc.dataset.lensHide = '1';
           const tlbl=css(el('span'),{color,fontSize:(ts.tableLabelFontSize||12)+'px',fontWeight:'700',lineHeight:'1.2',pointerEvents:'none'});
           tlbl.textContent=`T${ti+1}`;
-          disc.appendChild(tlbl); wrapper.appendChild(disc);
+          disc.appendChild(tlbl); tsSeatsLayer.appendChild(disc);
         }
       }
+      wrapper.appendChild(tsSeatsLayer);
 
       wrapper.dataset.plancat = ts.categoryId || '';
       this._addSectionClick(wrapper, ts.section||this._catName(ts.categoryId));
