@@ -195,13 +195,14 @@
         };
         renderer.render();
 
-        // Mercure — seat status updates
+        // Mercure — seat status updates + chart publish
         if (eventData.mercurePublicUrl && placioEventId) {
           const seatTopic  = encodeURIComponent(`event/${placioEventId}/seats`);
-          const chartTopic = encodeURIComponent(`chart/${key}`);
-          const es = new EventSource(
-            `${eventData.mercurePublicUrl}?topic=${seatTopic}&topic=${chartTopic}`
-          );
+          const chartSlug  = eventData.chartSlug;
+          const esUrl = chartSlug
+            ? `${eventData.mercurePublicUrl}?topic=${seatTopic}&topic=${encodeURIComponent(`chart/${chartSlug}`)}`
+            : `${eventData.mercurePublicUrl}?topic=${seatTopic}`;
+          const es = new EventSource(esUrl);
           es.onmessage = (e) => {
             try {
               const data = JSON.parse(e.data);

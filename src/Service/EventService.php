@@ -350,6 +350,7 @@ class EventService
             $chart?->getPublishedSnapshot(),
             $categories,
             $this->mercurePublicUrl ?: null,
+            $chart?->getSlug(),
         );
     }
 }
