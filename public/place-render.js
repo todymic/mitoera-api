@@ -265,8 +265,11 @@
       const show = this._zoom <= 0.6;
       const scale = show ? Math.min(3, 1 / this._zoom) : 1;
       for (const b of this._secBadges) {
-        b.style.display = (show && !b._suppressed) ? '' : 'none';
+        const visible = show && !b._suppressed;
+        b.style.display = visible ? '' : 'none';
         if (show) b.style.transform = `translate(-50%,-50%) scale(${scale})`;
+        // blur/unblur the seats inside the parent section card
+        if (b._seatsEl) b._seatsEl.style.filter = visible ? 'blur(1.5px)' : '';
       }
     }
 
@@ -1018,11 +1021,12 @@
         ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
         : null;
       this._tooltip.innerHTML = `
-        <div style="padding:10px 16px 8px;text-align:center">
-          <span style="font-size:18px;font-weight:800;color:#111827;letter-spacing:0.02em">${section}</span>
+        <div style="padding:10px 16px 6px;text-align:center">
+          <span style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em">Section</span><br>
+          <span style="font-size:20px;font-weight:800;color:#111827;letter-spacing:0.02em">${section}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:${color};margin-top:4px;gap:12px">
-          <span style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap">${name}</span>
+          <span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${name}</span>
           ${price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
         </div>`;
       const cr = this._root.getBoundingClientRect();
@@ -1559,19 +1563,19 @@
         borderRadius:'8px', padding:'6px',
       });
       const centerBadge=css(el('div'),{
-        display:'none', position:'absolute', top:'-11px', left:'50%',
-        transform:'translateX(-50%)',
-        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
-        borderRadius:'999px', padding:'2px 10px',
-        fontWeight:'700', fontSize:'11px', color,
+        display:'none', position:'absolute', top:'50%', left:'50%',
+        transform:'translate(-50%,-50%)',
+        background:color, borderRadius:'10px', padding:'6px 14px',
+        fontWeight:'700', fontSize:'12px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 1px 4px rgba(0,0,0,0.10)',
-        letterSpacing:'0.03em',
+        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        textAlign:'center',
       });
       centerBadge.textContent=row.section||this._catName(row.categoryId);
+      centerBadge._seatsEl=grid;
       card.appendChild(centerBadge);
       this._secBadges.push(centerBadge);
-      card.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
+      card.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; grid.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
       card.addEventListener('mouseleave', () => { centerBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       const colW=row.shape==='rounded' ? Math.round(ss*1.5) : ss;
@@ -1636,18 +1640,19 @@
       dlbl.textContent=t.section||this._catName(t.categoryId);
       disc.appendChild(dlbl); wrapper.appendChild(disc);
       const tzCenterBadge=css(el('div'),{
-        display:'none', position:'absolute', top:'-11px', left:'50%',
-        transform:'translateX(-50%)',
-        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
-        borderRadius:'999px', padding:'2px 10px',
-        fontWeight:'700', fontSize:'11px', color,
+        display:'none', position:'absolute', top:'50%', left:'50%',
+        transform:'translate(-50%,-50%)',
+        background:color, borderRadius:'10px', padding:'6px 14px',
+        fontWeight:'700', fontSize:'12px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 1px 4px rgba(0,0,0,0.10)', letterSpacing:'0.03em',
+        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        textAlign:'center',
       });
       tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
+      tzCenterBadge._seatsEl=wrapper;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; wrapper.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tzCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId));
@@ -1670,18 +1675,19 @@
         borderRadius:'10px', transform:`rotate(${ts.rotation||0}deg)`,
       });
       const tsCenterBadge=css(el('div'),{
-        display:'none', position:'absolute', top:'-11px', left:'50%',
-        transform:'translateX(-50%)',
-        background:'#fff', border:`1.5px solid ${rgba(color,0.6)}`,
-        borderRadius:'999px', padding:'2px 10px',
-        fontWeight:'700', fontSize:'11px', color,
+        display:'none', position:'absolute', top:'50%', left:'50%',
+        transform:'translate(-50%,-50%)',
+        background:color, borderRadius:'10px', padding:'6px 14px',
+        fontWeight:'700', fontSize:'12px', color:'#fff',
         whiteSpace:'nowrap', zIndex:'5', pointerEvents:'none',
-        boxShadow:'0 1px 4px rgba(0,0,0,0.10)', letterSpacing:'0.03em',
+        boxShadow:'0 2px 8px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
+        textAlign:'center',
       });
       tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
+      tsCenterBadge._seatsEl=wrapper;
       wrapper.appendChild(tsCenterBadge);
       this._secBadges.push(tsCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; wrapper.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tsCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
