@@ -326,9 +326,9 @@
           this._updateSecBadges();
           this._updateLens();
           if (this._mobilePendingTooltip) {
-            const { section, catId } = this._mobilePendingTooltip;
+            const { section, catId, el: pendingEl } = this._mobilePendingTooltip;
             this._mobilePendingTooltip = null;
-            this._showMobileSectionLabel(section, catId);
+            this._showMobileSectionLabel(section, catId, pendingEl);
           }
         };
         this._canvas.addEventListener('transitionend', onEnd, {once: true});
@@ -1073,7 +1073,7 @@
       setTimeout(() => { this._mobileOverlay.style.visibility = 'hidden'; }, 220);
     }
 
-    _showMobileSectionLabel(section, catId) {
+    _showMobileSectionLabel(section, catId, sectionEl) {
       const color = this._catColor(catId), name = this._catName(catId);
       const cat   = this._catMap[catId];
       const price = cat?.price != null
@@ -1092,8 +1092,20 @@
       this._tooltip.style.visibility = 'visible';
       this._tooltip.style.opacity = '1';
       const tw = this._tooltip.offsetWidth;
-      this._tooltip.style.left = Math.max(8, (this._cw - tw) / 2) + 'px';
-      this._tooltip.style.top  = '12px';
+      const th = this._tooltip.offsetHeight;
+      // Position below the section element, centered on it
+      let left = (this._cw - tw) / 2;
+      let top  = this._ch / 2 + 20; // fallback: below center
+      if (sectionEl) {
+        const sr = sectionEl.getBoundingClientRect();
+        const rr = this._root.getBoundingClientRect();
+        left = sr.left - rr.left + (sr.width - tw) / 2;
+        top  = sr.bottom - rr.top + 10;
+        // If pill overflows bottom, place above section instead
+        if (top + th > this._ch - 8) top = sr.top - rr.top - th - 10;
+      }
+      this._tooltip.style.left = Math.max(8, Math.min(left, this._cw - tw - 8)) + 'px';
+      this._tooltip.style.top  = Math.max(8, top) + 'px';
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
@@ -1492,7 +1504,7 @@
                 const py2 = -(oy + oh/2) * z2 + this._ch / 2;
                 this._mobileStep = 1;
                 const sectionName = card.dataset.section || this._catName(catId);
-                this._mobilePendingTooltip = { section: sectionName, catId };
+                this._mobilePendingTooltip = { section: sectionName, catId, el: card };
                 this._animateZoom(z2, px2, py2, 350);
               } else {
                 this._mobileStep = 2;
@@ -1549,7 +1561,7 @@
             const px2 = -(ox + ow/2) * z2 + this._cw / 2;
             const py2 = -(oy + oh/2) * z2 + this._ch / 2;
             this._mobileStep = 1;
-            this._mobilePendingTooltip = { section: sectionLabel, catId };
+            this._mobilePendingTooltip = { section: sectionLabel, catId, el };
             this._animateZoom(z2, px2, py2, 350);
             return;
           }
