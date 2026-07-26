@@ -490,7 +490,7 @@
       if (!this._dragging) return;
       const dx = e.clientX - this._dragStart.x - this._panX;
       const dy = e.clientY - this._dragStart.y - this._panY;
-      if (Math.abs(dx)+Math.abs(dy) > (this._isMobile() ? 14 : 8)) { this._didDrag = true; this._mobileStep = 0; }
+      if (Math.abs(dx)+Math.abs(dy) > (this._isMobile() ? 14 : 8)) { this._didDrag = true; }
       this._panX = e.clientX - this._dragStart.x;
       this._panY = e.clientY - this._dragStart.y;
       this._applyTransform();
@@ -615,9 +615,10 @@
         width:'40px', height:'40px', borderRadius:'50%',
         background:'#fff', border:'none',
         boxShadow:'0 2px 10px rgba(0,0,0,0.14)',
-        cursor:'pointer', display:'none',
+        cursor:'pointer', display:'flex',
         alignItems:'center', justifyContent:'center', padding:'0',
-        transition:'transform 0.15s, box-shadow 0.15s',
+        opacity:'0', pointerEvents:'none',
+        transition:'transform 0.15s, box-shadow 0.15s, opacity 0.25s ease',
       });
       btn.title = 'Vue d\'ensemble (50%)';
       btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -635,7 +636,8 @@
     _updateZoomOutBtn() {
       if (!this._zoomOutBtn) return;
       const show = !this._isFullscreen && this._zoom > 0.55;
-      this._zoomOutBtn.style.display = show ? 'flex' : 'none';
+      this._zoomOutBtn.style.opacity = show ? '1' : '0';
+      this._zoomOutBtn.style.pointerEvents = show ? '' : 'none';
     }
 
     // ── minimap ─────────────────────────────────────────────────────────────────
