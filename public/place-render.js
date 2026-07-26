@@ -244,6 +244,7 @@
       const scale = this._overviewZoom();
       const px2 = -minX*scale + (this._cw - w*scale)/2;
       const py2 = -minY*scale + (this._ch - h*scale)/2;
+      this._mobileStep = 0;
       this._animateZoom(scale, px2, py2, dur || 380);
     }
 
@@ -265,10 +266,10 @@
       const show = this._zoom <= 0.6;
       const scale = show ? Math.min(3, 1 / this._zoom) : 1;
       for (const b of this._secBadges) {
-        const visible = show && !b._suppressed;
+        const hovering = !!(b._wrapEl && b._wrapEl.matches(':hover'));
+        const visible = show && !hovering;
         b.style.display = visible ? '' : 'none';
         if (show) b.style.transform = `translate(-50%,-50%) scale(${scale})`;
-        // blur/unblur the seats inside the parent section card
         if (b._seatsEl) b._seatsEl.style.filter = visible ? 'blur(1.5px)' : '';
       }
     }
@@ -1580,6 +1581,7 @@
         display:'grid', gridTemplateColumns:`repeat(${row.cols||1},${colW}px)`, gap:'6px',
       });
       centerBadge._seatsEl=grid;
+      centerBadge._wrapEl=wrapper;
 
       for (let r=0;r<(row.rows||1);r++) {
         for (let c=0;c<(row.cols||1);c++) {
@@ -1598,8 +1600,8 @@
       }
       card.appendChild(grid); wrapper.appendChild(card);
       wrapper.dataset.plancat = row.categoryId || '';
-      wrapper.addEventListener('mouseenter', () => { centerBadge._suppressed=true; centerBadge.style.display='none'; grid.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { centerBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); grid.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
       this._addSectionClick(wrapper, row.section||this._catName(row.categoryId));
       this._canvas.appendChild(wrapper);
     }
@@ -1655,10 +1657,11 @@
       });
       tzCenterBadge.textContent=this._catName(t.categoryId)||t.section;
       tzCenterBadge._seatsEl=tzSeatsLayer;
+      tzCenterBadge._wrapEl=wrapper;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; tzSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { tzCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tzSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId));
       this._canvas.appendChild(wrapper);
@@ -1695,9 +1698,10 @@
       // seatsLayer: separate container so badge (sibling) isn't blurred
       const tsSeatsLayer=css(el('div'),{position:'absolute',inset:'0',pointerEvents:'none'});
       tsCenterBadge._seatsEl=tsSeatsLayer;
+      tsCenterBadge._wrapEl=wrapper;
 
-      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; tsSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { tsCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tsSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
         for (let ci=0;ci<tcols;ci++) {
