@@ -107,43 +107,35 @@
             break;
 
           case 'placio:requestFullscreen': {
+            // Move the CONTAINER div (not the iframe) to document.body.
+            // Moving the parent div doesn't reload the iframe (only moving the
+            // iframe element itself would). This bypasses any ancestor
+            // transform/overflow that would confine position:fixed.
+            const container = document.getElementById(this.divId);
+            if (!container) break;
+            this._fsContainer     = container;
+            this._fsParent        = container.parentNode;
+            this._fsNextSibling   = container.nextSibling;
+            this._fsSavedContainerStyle = container.getAttribute('style') || '';
+            document.body.appendChild(container);
+            container.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;overflow:hidden;border-radius:0;';
+            // Make the iframe fill the container
             this._savedIframeStyle = iframe.style.cssText;
-            // Neutralize ancestor CSS that confines position:fixed to a sub-rect
-            // (transform / will-change / filter / contain all create a new containing block)
-            this._fsAffectedEls = [];
-            let fsEl = iframe.parentElement;
-            while (fsEl && fsEl !== document.documentElement) {
-              const cs = getComputedStyle(fsEl);
-              if (cs.transform !== 'none' || cs.filter !== 'none' || cs.perspective !== 'none' || (cs.willChange && cs.willChange !== 'auto')) {
-                this._fsAffectedEls.push({
-                  el: fsEl,
-                  transform:  fsEl.style.transform,
-                  filter:     fsEl.style.filter,
-                  perspective:fsEl.style.perspective,
-                  willChange: fsEl.style.willChange,
-                });
-                fsEl.style.transform   = 'none';
-                fsEl.style.filter      = 'none';
-                fsEl.style.perspective = 'none';
-                fsEl.style.willChange  = 'auto';
-              }
-              fsEl = fsEl.parentElement;
-            }
-            iframe.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;border:none;display:block;border-radius:0;';
+            iframe.style.cssText   = 'width:100%;height:100%;border:none;display:block;border-radius:0;';
             document.body.style.overflow = 'hidden';
             break;
           }
 
           case 'placio:exitFullscreen': {
-            for (const s of (this._fsAffectedEls || [])) {
-              s.el.style.transform   = s.transform;
-              s.el.style.filter      = s.filter;
-              s.el.style.perspective = s.perspective;
-              s.el.style.willChange  = s.willChange;
+            const container = this._fsContainer;
+            if (container && this._fsParent) {
+              this._fsParent.insertBefore(container, this._fsNextSibling || null);
+              container.setAttribute('style', this._fsSavedContainerStyle);
             }
-            this._fsAffectedEls = [];
-            iframe.style.cssText = this._savedIframeStyle || '';
+            if (iframe) iframe.style.cssText = this._savedIframeStyle || '';
             document.body.style.overflow = '';
+            this._fsContainer = null;
+            this._fsParent    = null;
             break;
           }
 
