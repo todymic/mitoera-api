@@ -1649,10 +1649,10 @@
         textAlign:'center',
       });
       tzCenterBadge.textContent=t.section||this._catName(t.categoryId);
-      tzCenterBadge._seatsEl=wrapper;
+      // _seatsEl=null: wrapper contains the badge itself, blurring it would blur the badge too
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; wrapper.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { tzCenterBadge._suppressed=true; tzCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tzCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId));
@@ -1684,10 +1684,10 @@
         textAlign:'center',
       });
       tsCenterBadge.textContent=ts.section||this._catName(ts.categoryId);
-      tsCenterBadge._seatsEl=wrapper;
+      // _seatsEl=null: wrapper contains the badge itself, blurring it would blur the badge too
       wrapper.appendChild(tsCenterBadge);
       this._secBadges.push(tsCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; wrapper.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { tsCenterBadge._suppressed=true; tsCenterBadge.style.display='none'; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
       wrapper.addEventListener('mouseleave', () => { tsCenterBadge._suppressed=false; this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
