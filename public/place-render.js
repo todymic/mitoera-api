@@ -489,6 +489,8 @@
     // ── fullscreen button (top-right) ────────────────────────────────────────────
 
     _buildFullscreenBtn(root) {
+      // When embedded in an iframe, the host app handles fullscreen — hide this button
+      if (window !== window.top) return;
       const btn = css(el('button'), {
         position:'absolute', top:'10px', right:'10px', zIndex:'110',
         display:'inline-flex', alignItems:'center', gap:'6px',

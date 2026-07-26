@@ -106,38 +106,7 @@
             if (this.onCheckout) this.onCheckout(data.seats || []);
             break;
 
-          case 'placio:requestFullscreen': {
-            // Move the CONTAINER div (not the iframe) to document.body.
-            // Moving the parent div doesn't reload the iframe (only moving the
-            // iframe element itself would). This bypasses any ancestor
-            // transform/overflow that would confine position:fixed.
-            const container = document.getElementById(this.divId);
-            if (!container) break;
-            this._fsContainer     = container;
-            this._fsParent        = container.parentNode;
-            this._fsNextSibling   = container.nextSibling;
-            this._fsSavedContainerStyle = container.getAttribute('style') || '';
-            document.body.appendChild(container);
-            container.style.cssText = 'position:fixed;inset:0;z-index:99999;width:100vw;height:100vh;overflow:hidden;border-radius:0;';
-            // Make the iframe fill the container
-            this._savedIframeStyle = iframe.style.cssText;
-            iframe.style.cssText   = 'width:100%;height:100%;border:none;display:block;border-radius:0;';
-            document.body.style.overflow = 'hidden';
-            break;
-          }
 
-          case 'placio:exitFullscreen': {
-            const container = this._fsContainer;
-            if (container && this._fsParent) {
-              this._fsParent.insertBefore(container, this._fsNextSibling || null);
-              container.setAttribute('style', this._fsSavedContainerStyle);
-            }
-            if (iframe) iframe.style.cssText = this._savedIframeStyle || '';
-            document.body.style.overflow = '';
-            this._fsContainer = null;
-            this._fsParent    = null;
-            break;
-          }
 
           case 'placio:error':
             console.error('[Placio]', data.message);
