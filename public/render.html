@@ -84,6 +84,7 @@
     let holdToken    = null;
     let placioEventId = null;
     let categoryPrices = {};
+    let es = null;
 
     // ── postMessage helpers ──────────────────────────────────────────────────
 
@@ -179,7 +180,7 @@
         renderer = new PlaceRender({
           container: document.getElementById('chart'),
           data: {
-            chartObjects:   eventData.chartObjects   || [],
+            chartObjects:   eventData.publishedSnapshot || eventData.chartObjects || [],
             categories:     eventData.categories     || [],
             seats:          eventData.seats           || [],
             categoryPrices: categoryPrices,
@@ -197,12 +198,13 @@
 
         // Mercure — seat status updates + chart publish
         if (eventData.mercurePublicUrl && placioEventId) {
+          if (es) { es.close(); es = null; }
           const seatTopic  = encodeURIComponent(`event/${placioEventId}/seats`);
           const chartSlug  = eventData.chartSlug;
           const esUrl = chartSlug
             ? `${eventData.mercurePublicUrl}?topic=${seatTopic}&topic=${encodeURIComponent(`chart/${chartSlug}`)}`
             : `${eventData.mercurePublicUrl}?topic=${seatTopic}`;
-          const es = new EventSource(esUrl);
+          es = new EventSource(esUrl);
           es.onmessage = (e) => {
             try {
               const data = JSON.parse(e.data);
