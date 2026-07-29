@@ -11,6 +11,7 @@ use App\Exception\ResourceNotFoundException;
 use App\Exception\SeatNotAvailableException;
 use App\Repository\EventRepository;
 use App\Repository\EventSeatRepository;
+use App\Repository\SeatUsageLogRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Predis\Client;
 use Symfony\Component\Mercure\HubInterface;
@@ -27,6 +28,7 @@ class BookingService
         private EventRepository $eventRepository,
         private EntityManagerInterface $em,
         private HubInterface $hub,
+        private SeatUsageLogRepository $usageLogRepository,
         string $redisUrl = 'tcp://127.0.0.1:6379',
         int $holdDurationMinutes = 10,
     ) {
@@ -110,6 +112,11 @@ class BookingService
         $this->em->flush();
         $this->publishSeatChanges($eventId, $seats);
 
+        // Audit : comptabilise chaque siège la première fois qu'il est hold
+        foreach ($seatKeys as $seatKey) {
+            $this->usageLogRepository->insertIfNotExists($eventId->toRfc4122(), $seatKey, 'hold');
+        }
+
         return new HoldResponse($holdToken, $seatKeys, $expiresAt, $holdDurationSeconds);
     }
 
@@ -141,6 +148,12 @@ class BookingService
         }
         $this->em->flush();
         $this->publishSeatChanges($eventId, $seats);
+
+        // Audit : comptabilise chaque siège la première fois qu'il est booked
+        // (INSERT IGNORE : si déjà compté au hold, ne compte pas une deuxième fois)
+        foreach ($seatKeys as $seatKey) {
+            $this->usageLogRepository->insertIfNotExists($eventId->toRfc4122(), $seatKey, 'booked');
+        }
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {

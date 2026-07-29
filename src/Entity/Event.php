@@ -26,6 +26,10 @@ class Event
     #[ORM\JoinColumn(nullable: true)]
     private ?Chart $chart = null;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $owner = null;
+
     #[ORM\OneToMany(targetEntity: EventSeat::class, mappedBy: 'event', cascade: ['remove'])]
     private Collection $seats;
 
@@ -108,6 +112,9 @@ class Event
         }
         return $this;
     }
+
+    public function getOwner(): ?User { return $this->owner; }
+    public function setOwner(?User $owner): self { $this->owner = $owner; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable
     {
