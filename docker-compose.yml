@@ -1,19 +1,23 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: place-postgres
+
+  database:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    container_name: place-symfony-database-1
     environment:
-      POSTGRES_DB: place_app
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - database_data:/var/lib/postgresql/data:rw
     networks:
       - place-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   redis:
     image: redis:7-alpine
@@ -41,9 +45,8 @@ services:
       - place-network
 
 volumes:
-  postgres_data:
+  database_data:
 
 networks:
   place-network:
     driver: bridge
-

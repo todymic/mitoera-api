@@ -140,6 +140,44 @@ class EventService
         return $this->toResponse($event);
     }
 
+    public function getSeatStatuses(string $eventId, array $seatKeys = []): array
+    {
+        $event = $this->eventRepository->find($eventId);
+        if (!$event) {
+            throw new ResourceNotFoundException('Event not found');
+        }
+
+        $seats = $seatKeys !== []
+            ? $this->eventSeatRepository->findByEventIdAndSeatKeyIn($event->getId(), $seatKeys)
+            : $this->eventSeatRepository->findByEventId($event->getId());
+
+        if ($seatKeys !== []) {
+            // Auto-create missing seats: the published plan may have tables/seats that
+            // were never selected before, so no EventSeat row exists yet for them
+            // (same convention as BookingService::holdSeats()/bookSeats()).
+            $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
+            foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
+                $seat = new EventSeat();
+                $seat->setEvent($event);
+                $seat->setSeatKey($missingKey);
+                $seat->setStatus(SeatStatus::AVAILABLE);
+                $this->em->persist($seat);
+                $seats[] = $seat;
+            }
+            $this->em->flush();
+        }
+
+        $indexed = [];
+        foreach ($seats as $seat) {
+            $indexed[$seat->getSeatKey()] = [
+                'status'    => $seat->getStatus()->value,
+                'holdToken' => $seat->getHoldToken(),
+            ];
+        }
+
+        return $indexed;
+    }
+
     public function bulkUpdateSeatStatus(string $eventId, array $seatKeys, string $status): void
     {
         if (empty($seatKeys)) return;

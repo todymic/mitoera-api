@@ -149,22 +149,8 @@ class EventController extends AbstractController
     #[OA\Response(response: 404, description: 'Evenement introuvable')]
     public function getSeats(string $id, Request $request): JsonResponse
     {
-        $event = $this->eventService->findById($id);
         $filterKeys = $request->query->all('seatKeys');
-
-        $seats = $event->seats;
-        if ($filterKeys !== []) {
-            $filterSet = array_flip($filterKeys);
-            $seats = array_filter($seats, fn($s) => isset($filterSet[$s->seatKey]));
-        }
-
-        $indexed = [];
-        foreach ($seats as $seat) {
-            $indexed[$seat->seatKey] = [
-                'status'    => $seat->status,
-                'holdToken' => $seat->holdToken ?? null,
-            ];
-        }
+        $indexed = $this->eventService->getSeatStatuses($id, $filterKeys);
 
         return $this->json(['seats' => $indexed]);
     }

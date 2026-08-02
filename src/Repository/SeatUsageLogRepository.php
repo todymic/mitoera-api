@@ -15,8 +15,7 @@ class SeatUsageLogRepository extends ServiceEntityRepository
     }
 
     /**
-     * Insère un log de siège utilisé uniquement s'il n'existe pas déjà.
-     * Garantit qu'un siège est compté une seule fois par événement.
+     * Insère un log uniquement si le siège n'est pas déjà comptabilisé pour cet événement.
      */
     public function insertIfNotExists(string $eventId, string $seatKey, string $reason): void
     {
@@ -41,100 +40,126 @@ class SeatUsageLogRepository extends ServiceEntityRepository
      */
     public function monthlyStats(?string $userId = null, ?int $year = null): array
     {
-        $qb = $this->createQueryBuilder('l')
-            ->select(
-                'YEAR(l.usedAt) AS year',
-                'MONTH(l.usedAt) AS month',
-                'COUNT(l.id) AS count'
-            )
-            ->groupBy('year, month')
-            ->orderBy('year', 'ASC')
-            ->addOrderBy('month', 'ASC');
+        $conn = $this->getEntityManager()->getConnection();
+
+        $where  = ['1=1'];
+        $params = [];
 
         if ($userId !== null) {
-            $qb->join('l.event', 'e')
-               ->join('e.owner', 'u')
-               ->andWhere('u.id = :userId')
-               ->setParameter('userId', $userId);
+            $where[]          = 'e.owner_id = :userId';
+            $params['userId'] = $userId;
         }
-
         if ($year !== null) {
-            $qb->andWhere('YEAR(l.usedAt) = :year')->setParameter('year', $year);
+            $where[]        = "EXTRACT(YEAR FROM l.used_at) = :year";
+            $params['year'] = $year;
         }
 
-        return $qb->getQuery()->getArrayResult();
+        $join   = $userId !== null ? 'JOIN events e ON e.id = l.event_id' : '';
+        $clause = implode(' AND ', $where);
+
+        $sql = "
+            SELECT
+                EXTRACT(YEAR  FROM l.used_at)::int AS year,
+                EXTRACT(MONTH FROM l.used_at)::int AS month,
+                COUNT(*)::int                       AS count
+            FROM seat_usage_logs l
+            {$join}
+            WHERE {$clause}
+            GROUP BY year, month
+            ORDER BY year ASC, month ASC
+        ";
+
+        return $conn->fetchAllAssociative($sql, $params);
     }
 
     /**
-     * Nombre de sièges utilisés par événement pour un mois donné.
+     * Sièges utilisés par événement.
      * @return array<array{eventId: string, eventTitle: string, count: int}>
      */
     public function statsByEvent(?string $userId = null, ?int $year = null, ?int $month = null): array
     {
-        $qb = $this->createQueryBuilder('l')
-            ->select(
-                'IDENTITY(l.event) AS eventId',
-                'e.title AS eventTitle',
-                'COUNT(l.id) AS count'
-            )
-            ->join('l.event', 'e')
-            ->groupBy('l.event, e.title')
-            ->orderBy('count', 'DESC');
+        $conn = $this->getEntityManager()->getConnection();
+
+        $where  = ['1=1'];
+        $params = [];
 
         if ($userId !== null) {
-            $qb->join('e.owner', 'u')
-               ->andWhere('u.id = :userId')
-               ->setParameter('userId', $userId);
+            $where[]          = 'e.owner_id = :userId';
+            $params['userId'] = $userId;
         }
-
         if ($year !== null) {
-            $qb->andWhere('YEAR(l.usedAt) = :year')->setParameter('year', $year);
+            $where[]        = "EXTRACT(YEAR FROM l.used_at) = :year";
+            $params['year'] = $year;
         }
-
         if ($month !== null) {
-            $qb->andWhere('MONTH(l.usedAt) = :month')->setParameter('month', $month);
+            $where[]         = "EXTRACT(MONTH FROM l.used_at) = :month";
+            $params['month'] = $month;
         }
 
-        return $qb->getQuery()->getArrayResult();
+        $clause = implode(' AND ', $where);
+
+        $sql = "
+            SELECT
+                l.event_id          AS \"eventId\",
+                e.title             AS \"eventTitle\",
+                COUNT(*)::int       AS count
+            FROM seat_usage_logs l
+            JOIN events e ON e.id = l.event_id
+            WHERE {$clause}
+            GROUP BY l.event_id, e.title
+            ORDER BY count DESC
+        ";
+
+        return $conn->fetchAllAssociative($sql, $params);
     }
 
     /**
-     * Liste des sièges utilisés pour un événement donné.
+     * Liste des sièges utilisés pour un événement.
      * @return array<array{seatKey: string, reason: string, usedAt: string}>
      */
     public function seatListForEvent(string $eventId): array
     {
-        return $this->createQueryBuilder('l')
-            ->select('l.seatKey', 'l.reason', 'l.usedAt')
-            ->where('IDENTITY(l.event) = :eventId')
-            ->setParameter('eventId', $eventId)
-            ->orderBy('l.usedAt', 'ASC')
-            ->getQuery()
-            ->getArrayResult();
+        $conn = $this->getEntityManager()->getConnection();
+
+        $rows = $conn->fetchAllAssociative(
+            'SELECT seat_key AS "seatKey", reason, used_at AS "usedAt"
+             FROM seat_usage_logs
+             WHERE event_id = :eventId
+             ORDER BY used_at ASC',
+            ['eventId' => $eventId]
+        );
+
+        return $rows;
     }
 
     /**
-     * Compte total des sièges utilisés pour un userId/mois/année.
+     * Total sièges utilisés pour un compte / période.
      */
     public function totalCount(?string $userId = null, ?int $year = null, ?int $month = null): int
     {
-        $qb = $this->createQueryBuilder('l')->select('COUNT(l.id)');
+        $conn = $this->getEntityManager()->getConnection();
+
+        $where  = ['1=1'];
+        $params = [];
 
         if ($userId !== null) {
-            $qb->join('l.event', 'e')
-               ->join('e.owner', 'u')
-               ->andWhere('u.id = :userId')
-               ->setParameter('userId', $userId);
+            $where[]          = 'e.owner_id = :userId';
+            $params['userId'] = $userId;
         }
-
         if ($year !== null) {
-            $qb->andWhere('YEAR(l.usedAt) = :year')->setParameter('year', $year);
+            $where[]        = "EXTRACT(YEAR FROM l.used_at) = :year";
+            $params['year'] = $year;
         }
-
         if ($month !== null) {
-            $qb->andWhere('MONTH(l.usedAt) = :month')->setParameter('month', $month);
+            $where[]         = "EXTRACT(MONTH FROM l.used_at) = :month";
+            $params['month'] = $month;
         }
 
-        return (int) $qb->getQuery()->getSingleScalarResult();
+        $join   = $userId !== null ? 'JOIN events e ON e.id = l.event_id' : '';
+        $clause = implode(' AND ', $where);
+
+        $sql = "SELECT COUNT(*)::int FROM seat_usage_logs l {$join} WHERE {$clause}";
+
+        return (int) $conn->fetchOne($sql, $params);
     }
 }

@@ -180,7 +180,7 @@
         renderer = new PlaceRender({
           container: document.getElementById('chart'),
           data: {
-            chartObjects:   eventData.publishedSnapshot || eventData.chartObjects || [],
+            chartObjects:   eventData.publishedSnapshot || [],
             categories:     eventData.categories     || [],
             seats:          eventData.seats           || [],
             categoryPrices: categoryPrices,

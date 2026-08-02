@@ -25,6 +25,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $displayName = null;
 
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $firstName = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $lastName = null;
+
     #[ORM\Column(type: 'json')]
     private array $roles = ['ROLE_USER'];
 
@@ -36,6 +42,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $stripeCustomerId = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $stripeSubscriptionId = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $stripeSubscriptionStatus = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $stripePlanKey = null;
 
     public function __construct()
     {
@@ -127,5 +145,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
     }
+
+    public function getFirstName(): ?string { return $this->firstName; }
+    public function setFirstName(?string $firstName): self { $this->firstName = $firstName; return $this; }
+
+    public function getLastName(): ?string { return $this->lastName; }
+    public function setLastName(?string $lastName): self { $this->lastName = $lastName; return $this; }
+
+    public function getStripeCustomerId(): ?string { return $this->stripeCustomerId; }
+    public function setStripeCustomerId(?string $id): self { $this->stripeCustomerId = $id; return $this; }
+
+    public function getStripeSubscriptionId(): ?string { return $this->stripeSubscriptionId; }
+    public function setStripeSubscriptionId(?string $id): self { $this->stripeSubscriptionId = $id; return $this; }
+
+    public function getStripeSubscriptionStatus(): ?string { return $this->stripeSubscriptionStatus; }
+    public function setStripeSubscriptionStatus(?string $status): self { $this->stripeSubscriptionStatus = $status; return $this; }
+
+    public function getStripePlanKey(): ?string { return $this->stripePlanKey; }
+    public function setStripePlanKey(?string $plan): self { $this->stripePlanKey = $plan; return $this; }
 }
 

@@ -3,8 +3,8 @@
 namespace App\Controller;
 
 use App\Dto\UserResponse;
+use App\Entity\User;
 use App\Service\UserService;
-use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,81 +21,109 @@ class AuthController extends AbstractController
     }
 
     #[Route('/register', methods: ['POST'])]
-    #[OA\Post(security: [])]
-    #[OA\Tag(name: 'Auth')]
-    #[OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(
-            required: ['email', 'password'],
-            properties: [
-                new OA\Property(property: 'email', type: 'string', example: 'user@example.com'),
-                new OA\Property(property: 'password', type: 'string', example: 'ChangeMe123!'),
-                new OA\Property(property: 'displayName', type: 'string', example: 'John Doe'),
-            ]
-        )
-    )]
-    #[OA\Response(response: 201, description: 'Utilisateur cree')]
-    #[OA\Response(response: 400, description: 'Payload invalide ou email deja utilise')]
     public function register(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        $data = json_decode($request->getContent(), true) ?? [];
 
         try {
             $user = $this->userService->register(
                 $data['email'] ?? '',
                 $data['password'] ?? '',
-                $data['displayName'] ?? null,
+                $data['firstName'] ?? null,
+                $data['lastName'] ?? null,
             );
 
-            return $this->json(
-                $this->toResponse($user),
-                Response::HTTP_CREATED
-            );
-        } catch (\Exception $e) {
-            return $this->json(
-                ['error' => $e->getMessage()],
-                Response::HTTP_BAD_REQUEST
-            );
+            return $this->json($this->toResponse($user), Response::HTTP_CREATED);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
 
     #[Route('/login', methods: ['POST'])]
-    #[OA\Post(security: [])]
-    #[OA\Tag(name: 'Auth')]
-    #[OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(
-            required: ['email', 'password'],
-            properties: [
-                new OA\Property(property: 'email', type: 'string', example: 'user@example.com'),
-                new OA\Property(property: 'password', type: 'string', example: 'ChangeMe123!'),
-            ]
-        )
-    )]
-    #[OA\Response(
-        response: 200,
-        description: 'Token JWT genere',
-        content: new OA\JsonContent(properties: [
-            new OA\Property(property: 'token', type: 'string'),
-        ])
-    )]
-    #[OA\Response(response: 401, description: 'Identifiants invalides')]
-    public function login(Request $request): JsonResponse
+    public function login(): JsonResponse
     {
-        // This endpoint is handled by Lexik JWT Authentication Bundle
-        // The bundle automatically generates a JWT token for valid credentials
         return $this->json(['message' => 'Login endpoint']);
     }
 
     #[Route('/me', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED')]
-    #[OA\Tag(name: 'Auth')]
-    #[OA\Response(response: 200, description: 'Profil courant')]
-    #[OA\Response(response: 401, description: 'Non authentifie')]
     public function me(): JsonResponse
     {
+        return $this->json($this->toResponse($this->getUser()));
+    }
+
+    #[Route('/profile', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED')]
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
         $user = $this->getUser();
-        return $this->json($this->toResponse($user));
+        assert($user instanceof User);
+
+        try {
+            $updated = $this->userService->updateProfile(
+                $user,
+                $data['firstName'] ?? null,
+                $data['lastName'] ?? null,
+                $data['email'] ?? null,
+            );
+            return $this->json($this->toResponse($updated));
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/change-password', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED')]
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+        $user = $this->getUser();
+        assert($user instanceof User);
+
+        try {
+            $this->userService->changePassword(
+                $user,
+                $data['currentPassword'] ?? '',
+                $data['newPassword'] ?? '',
+            );
+            return $this->json(['success' => true]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/forgot-password', methods: ['POST'])]
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $data  = json_decode($request->getContent(), true) ?? [];
+        $email = $data['email'] ?? '';
+
+        $token = $this->userService->createPasswordResetToken($email);
+
+        // En production, envoyer le token par email.
+        // En dev, on le retourne directement pour faciliter les tests.
+        if ($_ENV['APP_ENV'] === 'dev' && $token) {
+            return $this->json(['resetToken' => $token]);
+        }
+
+        return $this->json(['success' => true]);
+    }
+
+    #[Route('/reset-password', methods: ['POST'])]
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        try {
+            $this->userService->resetPassword(
+                $data['token'] ?? '',
+                $data['password'] ?? '',
+            );
+            return $this->json(['success' => true]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
     }
 
     private function toResponse($user): UserResponse
@@ -104,10 +132,11 @@ class AuthController extends AbstractController
             $user->getId(),
             $user->getEmail(),
             $user->getDisplayName(),
+            $user->getFirstName(),
+            $user->getLastName(),
             $user->getRoles(),
             $user->getCreatedAt(),
             $user->getLastLoginAt(),
         );
     }
 }
-

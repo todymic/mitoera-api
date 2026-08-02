@@ -56,6 +56,15 @@ services:
             $redisUrl: '%env(string:REDIS_URL)%'
         tags: ['controller.service_arguments']
 
+    # StripeService
+    App\Service\StripeService:
+        arguments:
+            $secretKey:       '%env(string:STRIPE_SECRET_KEY)%'
+            $webhookSecret:   '%env(string:STRIPE_WEBHOOK_SECRET)%'
+            $priceStarter:    '%env(string:STRIPE_PRICE_STARTER)%'
+            $pricePro:        '%env(string:STRIPE_PRICE_PRO)%'
+            $priceEnterprise: '%env(string:STRIPE_PRICE_ENTERPRISE)%'
+
 
 
 
