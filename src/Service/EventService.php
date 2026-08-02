@@ -15,11 +15,9 @@ use App\Exception\ResourceNotFoundException;
 use App\Repository\CategoryRepository;
 use App\Repository\ChartRepository;
 use App\Repository\EventRepository;
+use App\Port\SeatPublisherPort;
 use App\Repository\EventSeatRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Mercure\HubInterface;
-use Symfony\Component\Mercure\Update;
-
 
 class EventService
 {
@@ -29,7 +27,7 @@ class EventService
         private EventSeatRepository $eventSeatRepository,
         private CategoryRepository $categoryRepository,
         private EntityManagerInterface $em,
-        private HubInterface $hub,
+        private SeatPublisherPort $publisher,
         private string $mercurePublicUrl = '',
     ) {
     }
@@ -38,7 +36,7 @@ class EventService
     {
         $existing = $this->eventRepository->findByIdentifier($request->identifier);
         if ($existing) {
-            throw new DuplicateKeyException("Event with identifier '{$request->identifier}' already exists");
+            throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
         }
 
         $event = new Event();
@@ -90,7 +88,7 @@ class EventService
         if ($request->identifier !== $event->getIdentifier()) {
             $existing = $this->eventRepository->findByIdentifier($request->identifier);
             if ($existing) {
-                throw new DuplicateKeyException("Event with identifier '{$request->identifier}' already exists");
+                throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
             }
         }
 
@@ -200,15 +198,8 @@ class EventService
         }
         $this->em->flush();
 
-        try {
-            $changes = array_map(fn(string $k) => ['seatKey' => $k, 'status' => $status], $seatKeys);
-            $this->hub->publish(new Update(
-                "event/{$eventId}/seats",
-                json_encode($changes),
-            ));
-        } catch (\Throwable $e) {
-            error_log('[Mercure] Failed to publish: ' . $e->getMessage());
-        }
+        $changes = array_map(fn(string $k) => ['seatKey' => $k, 'status' => $status], $seatKeys);
+        $this->publisher->publishSeatChanges($eventId, $changes);
     }
 
     private function initializeSeats(Event $event, Chart $chart): void
@@ -237,11 +228,11 @@ class EventService
 
                 for ($r = 0; $r < $rows; $r++) {
                     for ($c = 0; $c < $cols; $c++) {
-                        $posKey = "{$r}-{$c}";
+                        $posKey = "$r-$c";
                         if (in_array($posKey, $disabled)) continue;
                         $rowLabel = $this->axisLabel($r, $rows, $rowFmt, $rowDir);
                         $colLabel = $this->axisLabel($c, $cols, $colFmt, $colDir);
-                        $seatKey  = "{$section}-{$rowLabel}-{$colLabel}";
+                        $seatKey  = "$section-$rowLabel-$colLabel";
                         $seat = new EventSeat();
                         $seat->setEvent($event);
                         $seat->setSeatKey($seatKey);
@@ -265,7 +256,7 @@ class EventService
                         if (in_array($disabledKey, $disabled)) continue;
                         $seat = new EventSeat();
                         $seat->setEvent($event);
-                        $seat->setSeatKey("{$section}-{$ti}-{$si}");
+                        $seat->setSeatKey("--");
                         $seat->setStatus(SeatStatus::AVAILABLE);
                         $this->em->persist($seat);
                     }
@@ -280,7 +271,7 @@ class EventService
                 for ($i = 1; $i <= $seatCount; $i++) {
                     $seat = new EventSeat();
                     $seat->setEvent($event);
-                    $seat->setSeatKey("{$section}-{$i}");
+                    $seat->setSeatKey("-");
                     $seat->setStatus(SeatStatus::AVAILABLE);
                     $this->em->persist($seat);
                 }
@@ -304,7 +295,7 @@ class EventService
                 for ($i = 1; $i <= $seatCount; $i++) {
                     $seat = new EventSeat();
                     $seat->setEvent($event);
-                    $seat->setSeatKey("{$key}-{$i}");
+                    $seat->setSeatKey("-");
                     $seat->setStatus(SeatStatus::AVAILABLE);
                     $this->em->persist($seat);
                 }
