@@ -71,7 +71,35 @@
   </div>
 
   <script src="/place-render.js"></script>
-  <script>
+  <script type="module">
+  import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+  import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+
+  const FIREBASE_CONFIG = {
+    apiKey:            'AIzaSyBgzWlRvvEUlX_AyBQtuDPwblDMVf8WyJI',
+    authDomain:        'mitoera-b9471.firebaseapp.com',
+    projectId:         'mitoera-b9471',
+    storageBucket:     'mitoera-b9471.firebasestorage.app',
+    messagingSenderId: '309406690936',
+    appId:             '1:309406690936:web:c9e392c55261dca6e0478d',
+  };
+
+  function getFirebaseApp() {
+    return getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+  }
+
+  function subscribeSeats(eventId, onChange) {
+    const db  = getFirestore(getFirebaseApp());
+    const ref = collection(db, 'events', eventId, 'seats');
+    return onSnapshot(ref, (snap) => {
+      const changes = snap.docChanges()
+        .filter(c => c.type === 'added' || c.type === 'modified')
+        .map(c => ({ seatKey: c.doc.data().seatKey, status: c.doc.data().status }));
+      if (changes.length) onChange(changes);
+    });
+  }
+  /* ─────────────────────────────────────────────────────────────────────── */
+
   (function () {
     const params     = new URLSearchParams(location.search);
     const key        = params.get('key');
@@ -79,12 +107,12 @@
     const withCheckout = params.get('checkout') === '1';
     const API_BASE   = location.origin;
 
-    let renderer     = null;
-    let sessionToken = null;
-    let holdToken    = null;
+    let renderer      = null;
+    let sessionToken  = null;
+    let holdToken     = null;
     let placioEventId = null;
     let categoryPrices = {};
-    let es = null;
+    let unsubFirestore = null;
 
     // ── postMessage helpers ──────────────────────────────────────────────────
 
@@ -196,31 +224,13 @@
         };
         renderer.render();
 
-        // Mercure — seat status updates + chart publish
-        if (eventData.mercurePublicUrl && placioEventId) {
-          if (es) { es.close(); es = null; }
-          const seatTopic  = encodeURIComponent(`event/${placioEventId}/seats`);
-          const chartSlug  = eventData.chartSlug;
-          const esUrl = chartSlug
-            ? `${eventData.mercurePublicUrl}?topic=${seatTopic}&topic=${encodeURIComponent(`chart/${chartSlug}`)}`
-            : `${eventData.mercurePublicUrl}?topic=${seatTopic}`;
-          es = new EventSource(esUrl);
-          es.onmessage = (e) => {
-            try {
-              const data = JSON.parse(e.data);
-              // Chart published → full reload
-              if (data.type === 'chartUpdated') {
-                if (renderer) { renderer.destroy(); renderer = null; }
-                init();
-                return;
-              }
-              // Seat status changes
-              if (renderer && Array.isArray(data)) {
-                renderer.updateSeats(data.map(c => ({ seatKey: c.seatKey, status: c.status })));
-              }
-            } catch (_) {}
-          };
-        }
+        // Firestore — seat status updates en temps réel
+        if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
+        unsubFirestore = subscribeSeats(placioEventId, (changes) => {
+          if (renderer) {
+            renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
+          }
+        });
 
         emit('ready', { sessionToken, holdToken, eventId: placioEventId });
 
@@ -232,6 +242,10 @@
     }
 
     init();
+
+    window.addEventListener('beforeunload', () => {
+      if (unsubFirestore) unsubFirestore();
+    });
   })();
   </script>
 </body>
