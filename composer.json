@@ -6,7 +6,9 @@
     "require": {
         "php": ">=8.4",
         "ext-ctype": "*",
+        "ext-curl": "*",
         "ext-iconv": "*",
+        "ext-openssl": "*",
         "doctrine/doctrine-bundle": "^3.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",

@@ -9,11 +9,15 @@ use App\Port\SeatPublisherPort;
  * Aucune dépendance grpc requise — utilise curl + JWT Service Account.
  * Structure : events/{eventId}/seats/{seatKey}
  */
-readonly class FirestoreSeatPublisher implements SeatPublisherPort
+class FirestoreSeatPublisher implements SeatPublisherPort
 {
-    private array $serviceAccount;
+    private readonly array $serviceAccount;
 
-    public function __construct(string $credentialsPath, private string $projectId)
+    /** Cache du token OAuth2 partagé entre requêtes (APCu) ou en mémoire (fallback). */
+    private static ?string $cachedToken    = null;
+    private static int     $tokenExpiresAt = 0;
+
+    public function __construct(private readonly string $projectId, string $credentialsPath)
     {
         $json = file_get_contents($credentialsPath);
         if ($json === false) {
@@ -29,15 +33,15 @@ readonly class FirestoreSeatPublisher implements SeatPublisherPort
         }
 
         $token = $this->getAccessToken();
-        $base  = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents";
+        $base  = "https://firestore.googleapis.com/v1/projects/$this->projectId/databases/(default)/documents";
         $now   = gmdate('Y-m-d\TH:i:s\Z');
 
         $writes = [];
         foreach ($changes as $change) {
-            $seatKey = $change['seatKey'];
+            $seatKey  = $change['seatKey'];
             $writes[] = [
                 'update' => [
-                    'name'   => "{$base}/events/{$eventId}/seats/{$seatKey}",
+                    'name'   => "$base/events/$eventId/seats/$seatKey",
                     'fields' => [
                         'seatKey'   => ['stringValue' => $seatKey],
                         'status'    => ['stringValue' => $change['status']],
@@ -48,7 +52,7 @@ readonly class FirestoreSeatPublisher implements SeatPublisherPort
             ];
         }
 
-        $url  = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents:batchWrite";
+        $url  = "https://firestore.googleapis.com/v1/projects/$this->projectId/databases/(default)/documents:batchWrite";
         $body = json_encode(['writes' => $writes]);
 
         $ch = curl_init($url);
@@ -65,6 +69,14 @@ readonly class FirestoreSeatPublisher implements SeatPublisherPort
         $code     = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
+        if ($code === 401) {
+            // Token expiré côté serveur — on vide le cache et on réessaie une fois
+            self::$cachedToken    = null;
+            self::$tokenExpiresAt = 0;
+            $this->publishSeatChanges($eventId, $changes);
+            return;
+        }
+
         if ($code >= 400) {
             error_log('[Firestore] batchWrite failed (' . $code . '): ' . $response);
         }
@@ -72,7 +84,32 @@ readonly class FirestoreSeatPublisher implements SeatPublisherPort
 
     private function getAccessToken(): string
     {
-        $now    = time();
+        $now = time();
+
+        // Utilise APCu si disponible (cache entre requêtes PHP-FPM), sinon cache en mémoire statique
+        $cacheKey = 'firestore_token_' . $this->serviceAccount['client_email'];
+        if (function_exists('apcu_fetch')) {
+            $token = apcu_fetch($cacheKey, $success);
+            if ($success) {
+                return $token;
+            }
+        } elseif (self::$cachedToken !== null && $now < self::$tokenExpiresAt) {
+            return self::$cachedToken;
+        }
+
+        $token = $this->fetchNewToken($now);
+
+        if (function_exists('apcu_store')) {
+            apcu_store($cacheKey, $token, 3500); // 3500s < 3600s pour éviter l'expiration
+        }
+        self::$cachedToken    = $token;
+        self::$tokenExpiresAt = $now + 3500;
+
+        return $token;
+    }
+
+    private function fetchNewToken(int $now): string
+    {
         $header = $this->base64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
         $claim  = $this->base64url(json_encode([
             'iss'   => $this->serviceAccount['client_email'],
@@ -95,9 +132,9 @@ readonly class FirestoreSeatPublisher implements SeatPublisherPort
                 'assertion'  => $jwt,
             ]),
         ]);
-        $res   = curl_exec($ch);
+        $res  = curl_exec($ch);
         curl_close($ch);
-        $data  = json_decode($res, true);
+        $data = json_decode($res, true);
 
         if (empty($data['access_token'])) {
             throw new \RuntimeException('[Firestore] Failed to get access token: ' . $res);

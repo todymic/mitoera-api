@@ -35,8 +35,8 @@ services:
 
     App\Adapter\Outbound\FirestoreSeatPublisher:
         arguments:
-            $credentialsPath: '%app.firebase.credentials%'
             $projectId:       '%app.firebase.project_id%'
+            $credentialsPath: '%app.firebase.credentials%'
 
     # Brancher l'adapter actif ici : MercureSeatPublisher | FirestoreSeatPublisher
     App\Port\SeatPublisherPort:
