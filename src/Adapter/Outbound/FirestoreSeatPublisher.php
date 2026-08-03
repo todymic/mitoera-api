@@ -33,7 +33,7 @@ class FirestoreSeatPublisher implements SeatPublisherPort
         }
 
         $token = $this->getAccessToken();
-        $base  = "https://firestore.googleapis.com/v1/projects/$this->projectId/databases/(default)/documents";
+        $base  = "projects/$this->projectId/databases/(default)/documents";
         $now   = gmdate('Y-m-d\TH:i:s\Z');
 
         $writes = [];
