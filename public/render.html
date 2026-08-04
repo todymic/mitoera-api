@@ -227,8 +227,11 @@
         // Firestore — seat status updates en temps réel
         if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
         unsubFirestore = subscribeSeats(placioEventId, (changes) => {
+          emit('seatUpdate', { changes });
           if (renderer) {
-            renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
+            try {
+              renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
+            } catch (_) {}
           }
         });
 
