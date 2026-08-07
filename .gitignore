@@ -14,3 +14,7 @@
 ###< lexik/jwt-authentication-bundle ###
 
 .idea/
+config/*.json
+.DS_Store
+symfony.local.yaml
+.claude/

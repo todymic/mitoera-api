@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    app.firebase.credentials: '%env(string:FIREBASE_CREDENTIALS_PATH)%'
+    app.firebase.project_id: '%env(string:FIREBASE_PROJECT_ID)%'
 
 services:
     # default configuration for services in *this* file
@@ -27,6 +29,18 @@ services:
         arguments:
             $jwtSecret: '%env(string:JWT_SECRET_KEY)%'
             $sessionDurationMinutes: '%env(int:SEATING_SESSION_DURATION_MINUTES)%'
+
+    # --- Port / Adapters : SeatPublisherPort ---
+    App\Adapter\Outbound\MercureSeatPublisher: ~
+
+    App\Adapter\Outbound\FirestoreSeatPublisher:
+        arguments:
+            $projectId:       '%app.firebase.project_id%'
+            $credentialsPath: '%app.firebase.credentials%'
+
+    # Brancher l'adapter actif ici : MercureSeatPublisher | FirestoreSeatPublisher
+    App\Port\SeatPublisherPort:
+        alias: App\Adapter\Outbound\FirestoreSeatPublisher
 
     # EventService — Mercure public URL for widget subscribers
     App\Service\EventService:

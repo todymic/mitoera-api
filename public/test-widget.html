@@ -129,6 +129,14 @@ btnRelease.addEventListener('click', async () => {
   const data = await apiCall('release', { seatKeys });
   if (data) log('✅ release OK');
 });
+
+// Écoute les updates Firestore remontées par l'iframe render.html
+window.addEventListener('message', (e) => {
+  const { type, changes } = e.data || {};
+  if (type === 'placio:seatUpdate' && changes?.length) {
+    log('🔥 Firestore — ' + changes.map(c => c.seatKey + ':' + c.status).join(', '));
+  }
+});
 </script>
 </body>
 </html>

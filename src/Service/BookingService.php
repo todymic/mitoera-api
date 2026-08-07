@@ -13,9 +13,8 @@ use App\Repository\EventRepository;
 use App\Repository\EventSeatRepository;
 use App\Repository\SeatUsageLogRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Port\SeatPublisherPort;
 use Predis\Client;
-use Symfony\Component\Mercure\HubInterface;
-use Symfony\Component\Mercure\Update;
 use Symfony\Component\Uid\Uuid;
 
 class BookingService
@@ -27,7 +26,7 @@ class BookingService
         private EventSeatRepository $eventSeatRepository,
         private EventRepository $eventRepository,
         private EntityManagerInterface $em,
-        private HubInterface $hub,
+        private SeatPublisherPort $publisher,
         private SeatUsageLogRepository $usageLogRepository,
         string $redisUrl = 'tcp://127.0.0.1:6379',
         int $holdDurationMinutes = 10,
@@ -42,14 +41,8 @@ class BookingService
             return;
         }
 
-        $payload = json_encode($updates);
-
-        $this->redis->publish("seats:{$eventId}", $payload);
-
-        $this->hub->publish(new Update(
-            "event/{$eventId}/seats",
-            $payload,
-        ));
+        $this->redis->publish("seats:$eventId", json_encode($updates));
+        $this->publisher->publishSeatChanges((string) $eventId, $updates);
     }
 
     private function publishSeatChanges(Uuid $eventId, array $seats): void
@@ -59,16 +52,8 @@ class BookingService
             'status'  => $s->getStatus()->value,
         ], $seats);
 
-        $payload = json_encode($changes);
-
-        // Redis pour le widget public (SSE natif)
-        $this->redis->publish("seats:{$eventId}", $payload);
-
-        // Mercure pour le BO admin
-        $this->hub->publish(new Update(
-            "event/{$eventId}/seats",
-            $payload,
-        ));
+        $this->redis->publish("seats:$eventId", json_encode($changes));
+        $this->publisher->publishSeatChanges((string) $eventId, $changes);
     }
 
     public function holdSeats(Uuid $eventId, array $seatKeys, string $holdToken): HoldResponse
@@ -94,13 +79,13 @@ class BookingService
         }
 
         $holdDurationSeconds = $this->holdDurationMinutes * 60;
-        $expiresAt = new \DateTimeImmutable("+{$this->holdDurationMinutes} minutes");
+        $expiresAt = new \DateTimeImmutable("+$this->holdDurationMinutes minutes");
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {
-            $pipe->setex("hold:{$eventId}:{$seatKey}", $holdDurationSeconds, $holdToken);
+            $pipe->setex("hold:$eventId:$seatKey", $holdDurationSeconds, $holdToken);
         }
-        $pipe->setex("session_seats:{$holdToken}", $holdDurationSeconds, json_encode($seatKeys));
+        $pipe->setex("session_seats:$holdToken", $holdDurationSeconds, json_encode($seatKeys));
         $pipe->execute();
 
         foreach ($seats as $seat) {
@@ -157,9 +142,9 @@ class BookingService
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {
-            $pipe->del("hold:{$eventId}:{$seatKey}");
+            $pipe->del("hold:$eventId:$seatKey");
         }
-        $pipe->del("session_seats:{$holdToken}");
+        $pipe->del("session_seats:$holdToken");
         $pipe->execute();
 
         return new BookResponse($seatKeys, $eventId->toRfc4122(), new \DateTimeImmutable());
@@ -182,9 +167,9 @@ class BookingService
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {
-            $pipe->del("hold:{$eventId}:{$seatKey}");
+            $pipe->del("hold:$eventId:$seatKey");
         }
-        $pipe->del("session_seats:{$holdToken}");
+        $pipe->del("session_seats:$holdToken");
         $pipe->execute();
     }
 
@@ -248,7 +233,7 @@ class BookingService
         if ($newStatus !== SeatStatus::HOLD) {
             $pipe = $this->redis->pipeline();
             foreach ($seatKeys as $seatKey) {
-                $redisKey = "hold:{$eventId}:{$seatKey}";
+                $redisKey = "hold:$eventId:$seatKey";
                 $pipe->del($redisKey);
             }
             $pipe->execute();
