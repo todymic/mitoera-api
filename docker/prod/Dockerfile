@@ -28,11 +28,17 @@ FROM php:8.4-fpm-alpine AS app
 # extensions need to be added explicitly)
 RUN apk add --no-cache \
         icu-dev \
+        icu-libs \
         libzip-dev \
+        libzip \
         postgresql-dev \
+        libpq \
         libxml2-dev \
+        libxml2 \
         oniguruma-dev \
+        oniguruma \
         curl-dev \
+        libcurl \
         git \
         unzip \
         rsync \
@@ -63,6 +69,9 @@ WORKDIR /app
 
 # Copy app + vendor from composer stage
 COPY --from=composer_stage /app /app
+
+# .env minimal requis par Symfony bootEnv — les vraies valeurs viennent des env vars Docker
+RUN echo "APP_ENV=prod" > /app/.env
 
 # Dossiers writables + point de montage pour assets partagés avec nginx
 RUN mkdir -p /app/var /app/public_shared \
