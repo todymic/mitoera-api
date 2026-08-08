@@ -54,12 +54,6 @@ services:
       # ─── Local (HTTP) ───────────────────────────────────────────────────
       - "traefik.http.routers.mitoera-local.rule=Host(`mitoera.localhost`)"
       - "traefik.http.routers.mitoera-local.entrypoints=web"
-      # ─── Prod HTTP → HTTPS redirect ─────────────────────────────────────
-      - "traefik.http.routers.mitoera-http.rule=Host(`api.mitoera.com`)"
-      - "traefik.http.routers.mitoera-http.entrypoints=web"
-      - "traefik.http.routers.mitoera-http.middlewares=redirect-https"
-      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-https.redirectscheme.permanent=true"
       # ─── Prod (HTTPS) ───────────────────────────────────────────────────
       - "traefik.http.routers.mitoera.rule=Host(`api.mitoera.com`)"
       - "traefik.http.routers.mitoera.entrypoints=websecure"
@@ -80,10 +74,6 @@ services:
       - web
     labels:
       - "traefik.enable=true"
-      # ─── Prod HTTP → HTTPS redirect ─────────────────────────────────────
-      - "traefik.http.routers.mitoera-ui-http.rule=Host(`mitoera.com`)"
-      - "traefik.http.routers.mitoera-ui-http.entrypoints=web"
-      - "traefik.http.routers.mitoera-ui-http.middlewares=redirect-https"
       # ─── Prod (HTTPS) ───────────────────────────────────────────────────
       - "traefik.http.routers.mitoera-ui.rule=Host(`mitoera.com`)"
       - "traefik.http.routers.mitoera-ui.entrypoints=websecure"
@@ -103,9 +93,6 @@ services:
       - web
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mitoera-admin-http.rule=Host(`admin.mitoera.com`)"
-      - "traefik.http.routers.mitoera-admin-http.entrypoints=web"
-      - "traefik.http.routers.mitoera-admin-http.middlewares=redirect-https"
       - "traefik.http.routers.mitoera-admin.rule=Host(`admin.mitoera.com`)"
       - "traefik.http.routers.mitoera-admin.entrypoints=websecure"
       - "traefik.http.routers.mitoera-admin.tls=true"
