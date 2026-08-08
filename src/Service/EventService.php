@@ -44,6 +44,9 @@ class EventService
         $event->setIdentifier($request->identifier);
 
         if ($request->chartId) {
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $request->chartId)) {
+                throw new \InvalidArgumentException("Invalid chartId format");
+            }
             $chart = $this->chartRepository->find($request->chartId);
             if (!$chart) {
                 throw new ResourceNotFoundException('Chart not found');
