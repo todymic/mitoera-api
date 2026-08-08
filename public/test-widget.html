@@ -72,8 +72,8 @@ function updateButtons() {
 
 const chart = new Placio.SeatingChart({
   divId: 'chart',
-  workspaceKey: 'pk_pub_3d838b72',
-  event: '16',
+  workspaceKey: 'pk_pub_d0b6ca46',
+  event: 'test',
   onSeatSelected:   (s) => log('✓ sélectionné : ' + s.seatKey + ' (' + (s.catName || '—') + ')'),
   onSeatDeselected: (s) => log('✕ désélectionné : ' + s.seatKey),
   onSelectionChange: (seats) => {
