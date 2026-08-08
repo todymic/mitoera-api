@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./var:/app/var
-      - jwt_keys:/app/config/jwt
+      - ./config/jwt:/app/config/jwt:ro
       # Partagé avec nginx pour servir les assets statiques
       - public_shared:/app/public_shared
       # Credentials Firebase (ne pas committer le fichier JSON)
@@ -120,7 +120,6 @@ services:
 volumes:
   database_data:
   redis_data:
-  jwt_keys:
   public_shared:
 
 networks:
