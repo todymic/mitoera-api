@@ -1,0 +1,8 @@
+api_repo: git@github.com:todymic/placio-back.git
+ui_repo: git@github.com:todymic/placio-ui.git
+
+api_path: /home/debian/mitoera/api
+ui_path: /home/debian/mitoera/ui
+
+firebase_credentials_local: "{{ playbook_dir }}/../config/mitoera-firebas-credentials.json"
+firebase_credentials_remote: "{{ api_path }}/config/mitoera-firebas-credentials.json"

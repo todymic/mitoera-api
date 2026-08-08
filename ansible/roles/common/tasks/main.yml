@@ -1,0 +1,25 @@
+---
+- name: Créer le réseau Docker web
+  community.docker.docker_network:
+    name: web
+    state: present
+  become: true
+
+- name: Créer les répertoires de déploiement
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: debian
+    group: debian
+    mode: "0755"
+  become: true
+  loop:
+    - /home/debian/mitoera
+    - "{{ api_path }}"
+    - "{{ ui_path }}"
+
+- name: Ajouter github.com aux known_hosts
+  known_hosts:
+    name: github.com
+    key: "{{ lookup('pipe', 'ssh-keyscan github.com 2>/dev/null') }}"
+    state: present

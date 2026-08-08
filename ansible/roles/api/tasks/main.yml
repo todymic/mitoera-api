@@ -1,0 +1,72 @@
+---
+- name: Cloner / mettre à jour le repo API
+  git:
+    repo: "{{ api_repo }}"
+    dest: "{{ api_path }}"
+    version: main
+    accept_hostkey: true
+    force: true
+  become: false
+
+- name: Copier les credentials Firebase (fichier secret hors git)
+  copy:
+    src: "{{ firebase_credentials_local }}"
+    dest: "{{ firebase_credentials_remote }}"
+    mode: "0600"
+
+- name: Créer le dossier var avec les bonnes permissions (uid 82 = www-data Alpine)
+  file:
+    path: "{{ api_path }}/var/{{ item }}"
+    state: directory
+    owner: "82"
+    group: "82"
+    mode: "0755"
+  become: true
+  loop:
+    - cache
+    - log
+    - sessions
+
+- name: Lancer Traefik (prod)
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.traefik.prod.yml
+    state: present
+    pull: always
+  become: true
+
+- name: Builder et démarrer l'API
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    services:
+      - app
+      - nginx
+      - database
+      - redis
+    state: present
+    build: always
+    pull: missing
+  become: true
+
+- name: Attendre que la base de données soit prête
+  community.docker.docker_container_info:
+    name: mitoera-database
+  register: db_info
+  until: db_info.container.State.Health.Status == 'healthy'
+  retries: 15
+  delay: 5
+  become: true
+
+- name: Exécuter les migrations Doctrine
+  community.docker.docker_container_exec:
+    container: mitoera-app
+    command: php bin/console doctrine:migrations:migrate --no-interaction
+  register: migrations
+  become: true
+
+- name: Résultat migrations
+  debug:
+    msg: "{{ migrations.stdout }}"

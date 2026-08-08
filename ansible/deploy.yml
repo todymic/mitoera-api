@@ -1,0 +1,9 @@
+---
+- name: Déploiement Mitoera en production
+  hosts: production
+  gather_facts: false
+
+  roles:
+    - common
+    - api
+    - ui

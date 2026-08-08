@@ -1,0 +1,20 @@
+---
+- name: Cloner / mettre à jour le repo UI
+  git:
+    repo: "{{ ui_repo }}"
+    dest: "{{ ui_path }}"
+    version: main
+    accept_hostkey: true
+    force: true
+  become: false
+
+- name: Builder et démarrer l'UI
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    services:
+      - ui
+    state: present
+    build: always
+  become: true
