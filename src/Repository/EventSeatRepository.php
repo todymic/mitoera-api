@@ -81,5 +81,37 @@ class EventSeatRepository extends ServiceEntityRepository
             ->getQuery()
             ->execute();
     }
+
+    public function updateStatusByEventAndKeys(Uuid $eventId, array $seatKeys, SeatStatus $newStatus): void
+    {
+        $this->createQueryBuilder('e')
+            ->update()
+            ->set('e.status', ':newStatus')
+            ->set('e.holdToken', ':null')
+            ->set('e.heldUntil', ':null')
+            ->where('e.event = :eventId')
+            ->andWhere('e.seatKey IN (:seatKeys)')
+            ->setParameter('newStatus', $newStatus)
+            ->setParameter('null', null)
+            ->setParameter('eventId', $eventId)
+            ->setParameter('seatKeys', $seatKeys)
+            ->getQuery()
+            ->execute();
+    }
+
+    /** @return string[] */
+    public function findExistingKeysByEventAndKeys(Uuid $eventId, array $seatKeys): array
+    {
+        $rows = $this->createQueryBuilder('e')
+            ->select('e.seatKey')
+            ->where('e.event = :eventId')
+            ->andWhere('e.seatKey IN (:seatKeys)')
+            ->setParameter('eventId', $eventId)
+            ->setParameter('seatKeys', $seatKeys)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_column($rows, 'seatKey');
+    }
 }
 

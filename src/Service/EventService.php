@@ -185,13 +185,10 @@ class EventService
         $seatStatus = SeatStatus::from($status);
         $event = $this->eventRepository->find($eventId);
         if (!$event) throw new ResourceNotFoundException('Event not found');
-        $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($event->getId(), $seatKeys);
-        $ids = array_map(fn(EventSeat $s) => $s->getId(), $seats);
-        if (!empty($ids)) {
-            $this->eventSeatRepository->updateStatusByIds($ids, $seatStatus);
-        }
-        // Create missing seats
-        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
+
+        $this->eventSeatRepository->updateStatusByEventAndKeys($event->getId(), $seatKeys, $seatStatus);
+
+        $existingKeys = $this->eventSeatRepository->findExistingKeysByEventAndKeys($event->getId(), $seatKeys);
         foreach (array_diff($seatKeys, $existingKeys) as $key) {
             $seat = new EventSeat();
             $seat->setEvent($event);

@@ -167,7 +167,6 @@ class EventController extends AbstractController
     public function bulkUpdateSeats(string $id, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        $event = $this->eventService->findById($id);
         $this->eventService->bulkUpdateSeatStatus($id, $data['seatKeys'] ?? [], $data['status'] ?? 'available');
         return $this->json(['updated' => count($data['seatKeys'] ?? [])]);
     }
