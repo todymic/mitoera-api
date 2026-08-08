@@ -50,7 +50,7 @@ class ContactController extends AbstractController
         $subjectLabel = $subjects[$subject] ?? 'Contact';
 
         $mail = (new Email())
-            ->from('contact@mitoera.com')
+            ->from('noreply@mitoera.com')
             ->to('contact@mitoera.com')
             ->replyTo($email)
             ->subject("[Mitoera] $subjectLabel — $name")
