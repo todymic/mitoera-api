@@ -26,12 +26,40 @@ class FirestoreSeatPublisher implements SeatPublisherPort
         $this->serviceAccount = json_decode($json, true);
     }
 
+    /** @var array<array{eventId: string, changes: array}> */
+    private array $pending = [];
+
     public function publishSeatChanges(string $eventId, array $changes): void
     {
         if (empty($changes)) {
             return;
         }
 
+        $this->pending[] = ['eventId' => $eventId, 'changes' => $changes];
+    }
+
+    public function flush(): void
+    {
+        if (empty($this->pending)) {
+            return;
+        }
+
+        // Group by eventId, dedup by seatKey (last write wins)
+        $byEvent = [];
+        foreach ($this->pending as $batch) {
+            foreach ($batch['changes'] as $change) {
+                $byEvent[$batch['eventId']][$change['seatKey']] = $change;
+            }
+        }
+        $this->pending = [];
+
+        foreach ($byEvent as $eventId => $changes) {
+            $this->sendBatch($eventId, array_values($changes));
+        }
+    }
+
+    private function sendBatch(string $eventId, array $changes): void
+    {
         $token = $this->getAccessToken();
         $base  = "projects/$this->projectId/databases/(default)/documents";
         $now   = gmdate('Y-m-d\TH:i:s\Z');
@@ -70,10 +98,9 @@ class FirestoreSeatPublisher implements SeatPublisherPort
         curl_close($ch);
 
         if ($code === 401) {
-            // Token expiré côté serveur — on vide le cache et on réessaie une fois
             self::$cachedToken    = null;
             self::$tokenExpiresAt = 0;
-            $this->publishSeatChanges($eventId, $changes);
+            $this->sendBatch($eventId, $changes);
             return;
         }
 
