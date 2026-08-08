@@ -121,10 +121,14 @@ class ChartController extends AbstractController
     {
         $response = $this->chartService->clearPendingChanges($id);
 
-        $hub->publish(new Update(
-            "chart/{$response->slug}",
-            json_encode(['type' => 'chartUpdated', 'chartKey' => $response->slug]),
-        ));
+        try {
+            $hub->publish(new Update(
+                "chart/{$response->slug}",
+                json_encode(['type' => 'chartUpdated', 'chartKey' => $response->slug]),
+            ));
+        } catch (\Throwable $e) {
+            error_log('[Mercure] Failed to publish chart update: ' . $e->getMessage());
+        }
 
         return $this->json($response);
     }
