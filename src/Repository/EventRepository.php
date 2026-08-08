@@ -24,8 +24,7 @@ class EventRepository extends ServiceEntityRepository
 
     public function findByIdentifier(string $identifier): ?Event
     {
-        return $this->findOneBy(['identifier' => $identifier])
-            ?? $this->find($identifier);
+        return $this->findOneBy(['identifier' => $identifier]);
     }
 
     public function countByChart(Chart $chart): int
