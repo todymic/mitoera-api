@@ -38,6 +38,7 @@ security:
         - { path: ^/api/doc\.json$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/contact, roles: PUBLIC_ACCESS }
         # Session publique pour page de réservation standalone (aucune auth requise)
         - { path: ^/api/public/events/.*/session, roles: PUBLIC_ACCESS }
         # SSE stream — token validé manuellement dans le contrôleur (EventSource ne supporte pas les headers)
