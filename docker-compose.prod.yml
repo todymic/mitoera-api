@@ -62,6 +62,24 @@ services:
       # ─── Service (port nginx interne) ───────────────────────────────────
       - "traefik.http.services.mitoera.loadbalancer.server.port=80"
 
+  ui:
+    build:
+      context: /home/debian/mitoera/ui
+      dockerfile: Dockerfile
+    image: mitoera/ui:latest
+    container_name: mitoera-ui
+    restart: unless-stopped
+    networks:
+      - mitoera-network
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mitoera-ui.rule=Host(`app.mitoera.com`)"
+      - "traefik.http.routers.mitoera-ui.entrypoints=websecure"
+      - "traefik.http.routers.mitoera-ui.tls=true"
+      - "traefik.http.routers.mitoera-ui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mitoera-ui.loadbalancer.server.port=80"
+
   database:
     image: postgres:16-alpine
     container_name: mitoera-database
