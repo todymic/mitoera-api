@@ -74,7 +74,7 @@ services:
       - web
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mitoera-ui.rule=Host(`app.mitoera.com`)"
+      - "traefik.http.routers.mitoera-ui.rule=Host(`mitoera.com`)"
       - "traefik.http.routers.mitoera-ui.entrypoints=websecure"
       - "traefik.http.routers.mitoera-ui.tls=true"
       - "traefik.http.routers.mitoera-ui.tls.certresolver=letsencrypt"
