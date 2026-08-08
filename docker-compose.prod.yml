@@ -91,6 +91,27 @@ services:
       - "traefik.http.routers.mitoera-ui.tls.certresolver=letsencrypt"
       - "traefik.http.services.mitoera-ui.loadbalancer.server.port=80"
 
+  admin:
+    build:
+      context: /home/debian/mitoera/admin
+      dockerfile: Dockerfile
+    image: mitoera/admin:latest
+    container_name: mitoera-admin
+    restart: unless-stopped
+    networks:
+      - mitoera-network
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mitoera-admin-http.rule=Host(`admin.mitoera.com`)"
+      - "traefik.http.routers.mitoera-admin-http.entrypoints=web"
+      - "traefik.http.routers.mitoera-admin-http.middlewares=redirect-https"
+      - "traefik.http.routers.mitoera-admin.rule=Host(`admin.mitoera.com`)"
+      - "traefik.http.routers.mitoera-admin.entrypoints=websecure"
+      - "traefik.http.routers.mitoera-admin.tls=true"
+      - "traefik.http.routers.mitoera-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mitoera-admin.loadbalancer.server.port=80"
+
   database:
     image: postgres:16-alpine
     container_name: mitoera-database

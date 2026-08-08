@@ -1,0 +1,20 @@
+---
+- name: Cloner / mettre à jour le repo Admin
+  git:
+    repo: "{{ admin_repo }}"
+    dest: "{{ admin_path }}"
+    version: main
+    accept_hostkey: true
+    force: true
+  become: false
+
+- name: Builder et démarrer l'Admin
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    services:
+      - admin
+    state: present
+    build: always
+  become: true

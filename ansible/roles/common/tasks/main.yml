@@ -17,6 +17,7 @@
     - /home/debian/mitoera
     - "{{ api_path }}"
     - "{{ ui_path }}"
+    - "{{ admin_path }}"
 
 - name: Ajouter github.com aux known_hosts
   known_hosts:

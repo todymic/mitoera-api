@@ -1,8 +1,10 @@
 api_repo: git@github.com:todymic/mitoera-api.git
 ui_repo: git@github.com:todymic/mitoera-ui.git
+admin_repo: git@github.com:todymic/mitoera-admin.git
 
 api_path: /home/debian/mitoera/api
 ui_path: /home/debian/mitoera/ui
+admin_path: /home/debian/mitoera/admin
 
 firebase_credentials_local: "{{ playbook_dir }}/../config/mitoera-firebas-credentials.json"
 firebase_credentials_remote: "{{ api_path }}/config/mitoera-firebas-credentials.json"
