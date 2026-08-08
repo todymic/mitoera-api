@@ -1,0 +1,28 @@
+## traefik.yml — configuration statique locale (HTTP uniquement)
+## Pour la prod, voir traefik.prod.yml
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# Dashboard accessible sur http://localhost:8080
+api:
+  dashboard: true
+  insecure: true
+
+# Entrypoint HTTP (local uniquement — pas de redirection HTTPS)
+entryPoints:
+  web:
+    address: ":80"
+
+# Provider Docker
+providers:
+  docker:
+    network: web
+    exposedByDefault: false
+    watch: true
+
+log:
+  level: INFO
+
+accessLog: {}

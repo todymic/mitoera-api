@@ -1,0 +1,36 @@
+.git
+.gitignore
+.github
+
+# Local env files (never bake secrets into the image)
+.env
+.env.local
+.env.*.local
+.env.prod
+
+# Dependencies (installed fresh inside the image)
+vendor/
+node_modules/
+
+# Symfony runtime/cache/logs (generated at runtime, not build time)
+var/cache/*
+var/log/*
+var/sessions/*
+
+# Tests / dev tooling
+tests/
+phpunit.xml*
+.php-cs-fixer.cache
+
+# IDE / OS junk
+.idea/
+.vscode/
+*.DS_Store
+
+# Docker files themselves (no need to copy them into the image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Docs
+README.md

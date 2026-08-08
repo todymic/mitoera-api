@@ -1,0 +1,21 @@
+## Lance Traefik en local.
+## Démarrage : docker compose -f docker-compose.traefik.yml up -d
+## Dashboard : http://localhost:8080
+
+services:
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"       # HTTP
+      - "8080:8080"   # Dashboard Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
