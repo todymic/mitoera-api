@@ -2,7 +2,7 @@ services:
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
-    container_name: place-symfony-database-1
+    container_name: mitoera-api-database-1
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-app}
       POSTGRES_USER: ${POSTGRES_USER:-app}

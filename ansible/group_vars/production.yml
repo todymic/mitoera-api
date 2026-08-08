@@ -1,5 +1,5 @@
-api_repo: git@github.com:todymic/placio-back.git
-ui_repo: git@github.com:todymic/placio-ui.git
+api_repo: git@github.com:todymic/mitoera-api.git
+ui_repo: git@github.com:todymic/mitoera-ui.git
 
 api_path: /home/debian/mitoera/api
 ui_path: /home/debian/mitoera/ui
