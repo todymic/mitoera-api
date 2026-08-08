@@ -38,6 +38,7 @@ class UserService
         $user->setDisplayName(trim(($firstName ?? '') . ' ' . ($lastName ?? '')) ?: $email);
         $user->setRoles(['ROLE_BACKOFFICE']);
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
+        $user->setValidated(false);
 
         $this->em->persist($user);
         $this->em->flush();

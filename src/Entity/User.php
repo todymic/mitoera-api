@@ -37,6 +37,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $active = true;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $validated = false;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
@@ -163,5 +166,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getStripePlanKey(): ?string { return $this->stripePlanKey; }
     public function setStripePlanKey(?string $plan): self { $this->stripePlanKey = $plan; return $this; }
+
+    public function isValidated(): bool { return $this->validated; }
+    public function setValidated(bool $validated): self { $this->validated = $validated; return $this; }
 }
 
