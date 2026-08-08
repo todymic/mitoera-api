@@ -4,7 +4,6 @@ global:
   checkNewVersion: false
   sendAnonymousUsage: false
 
-# Dashboard sécurisé (accès via label BasicAuth sur le service traefik)
 api:
   dashboard: true
   insecure: false
@@ -12,12 +11,6 @@ api:
 entryPoints:
   web:
     address: ":80"
-    http:
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
-          permanent: true
   websecure:
     address: ":443"
 
