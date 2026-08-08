@@ -40,7 +40,7 @@ services:
 
     # Brancher l'adapter actif ici : MercureSeatPublisher | FirestoreSeatPublisher
     App\Port\SeatPublisherPort:
-        alias: App\Adapter\Outbound\FirestoreSeatPublisher
+        alias: App\Adapter\Outbound\MercureSeatPublisher
 
     # EventService — Mercure public URL for widget subscribers
     App\Service\EventService:
