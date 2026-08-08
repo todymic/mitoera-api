@@ -51,7 +51,7 @@ class ContactController extends AbstractController
 
         $mail = (new Email())
             ->from('noreply@mitoera.com')
-            ->to('contact@irytech.net')
+            ->to('contact@mitoera.com')
             ->replyTo($email)
             ->subject("[Mitoera] $subjectLabel — $name")
             ->text("Nom : $name\nEmail : $email\nSujet : $subjectLabel\n\n$message");
