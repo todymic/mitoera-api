@@ -44,6 +44,8 @@ security:
         - { path: ^/api/public/events/.*/session, roles: PUBLIC_ACCESS }
         # SSE stream — token validé manuellement dans le contrôleur (EventSource ne supporte pas les headers)
         - { path: ^/api/widget/events/.*/stream, roles: PUBLIC_ACCESS }
+        # Token Mercure — BO (auth JWT backoffice)
+        - { path: ^/api/mercure-token, roles: ROLE_BACKOFFICE }
         # Widget booking — auth via "Authorization: Widget <sessionToken>"
         - { path: ^/api/widget, roles: ROLE_WIDGET }
         # Sessions publiques — auth via clé secrète API (scope PUBLIC)

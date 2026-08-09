@@ -70,6 +70,15 @@ services:
             $redisUrl: '%env(string:REDIS_URL)%'
         tags: ['controller.service_arguments']
 
+    App\Controller\RenderController:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+        tags: ['controller.service_arguments']
+
+    App\Service\MercureTokenService:
+        arguments:
+            $mercureJwtSecret: '%env(string:MERCURE_JWT_SECRET)%'
+
     # StripeService
     App\Service\StripeService:
         arguments:

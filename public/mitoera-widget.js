@@ -55,7 +55,7 @@
       container.style.cssText += ';overflow:hidden;position:relative;';
 
       // Build iframe URL
-      const url = new URL(`${API_BASE}/render.html`);
+      const url = new URL(`${API_BASE}/render`);
       url.searchParams.set('key',   this.workspaceKey);
       url.searchParams.set('event', this.eventId);
       if (this.onCheckout) url.searchParams.set('checkout', '1');

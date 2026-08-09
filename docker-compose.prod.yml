@@ -151,7 +151,6 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_JWT_SECRET}'
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins https://mitoera.com https://api.mitoera.com https://admin.mitoera.com
-        anonymous
         subscriptions
         ui
     networks:

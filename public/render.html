@@ -197,11 +197,22 @@
         };
         renderer.render();
 
-        // Mercure — seat status updates en temps réel
+        // Mercure — seat status updates en temps réel (token authentifié)
         if (mercureES) { mercureES.close(); mercureES = null; }
         const mercureHub = eventData.mercurePublicUrl || `${API_BASE}/.well-known/mercure`;
+
+        // Fetch subscriber JWT
+        let mercureToken = null;
+        try {
+          const tokenRes = await fetch(`${API_BASE}/api/widget/mercure-token?eventId=${mitoerEventId}`, {
+            headers: { Authorization: `Widget ${sessionToken}` },
+          });
+          if (tokenRes.ok) mercureToken = (await tokenRes.json()).token;
+        } catch (_) {}
+
         const esUrl = new URL(mercureHub);
         esUrl.searchParams.append('topic', `event/${mitoerEventId}/seats`);
+        if (mercureToken) esUrl.searchParams.append('authorization', mercureToken);
         mercureES = new EventSource(esUrl.toString());
         mercureES.onmessage = (e) => {
           const changes = JSON.parse(e.data);
