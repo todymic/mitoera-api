@@ -72,32 +72,6 @@
 
   <script src="/place-render.js"></script>
   <script type="module">
-  import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-  import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-
-  const FIREBASE_CONFIG = {
-    apiKey:            'AIzaSyBgzWlRvvEUlX_AyBQtuDPwblDMVf8WyJI',
-    authDomain:        'mitoera-b9471.firebaseapp.com',
-    projectId:         'mitoera-b9471',
-    storageBucket:     'mitoera-b9471.firebasestorage.app',
-    messagingSenderId: '309406690936',
-    appId:             '1:309406690936:web:c9e392c55261dca6e0478d',
-  };
-
-  function getFirebaseApp() {
-    return getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
-  }
-
-  function subscribeSeats(eventId, onChange) {
-    const db  = getFirestore(getFirebaseApp());
-    const ref = collection(db, 'events', eventId, 'seats');
-    return onSnapshot(ref, (snap) => {
-      const changes = snap.docChanges()
-        .filter(c => c.type === 'added' || c.type === 'modified')
-        .map(c => ({ seatKey: c.doc.data().seatKey, status: c.doc.data().status }));
-      if (changes.length) onChange(changes);
-    });
-  }
   /* ─────────────────────────────────────────────────────────────────────── */
 
   (function () {
@@ -112,7 +86,7 @@
     let holdToken     = null;
     let placioEventId = null;
     let categoryPrices = {};
-    let unsubFirestore = null;
+    let mercureES     = null;
 
     // ── postMessage helpers ──────────────────────────────────────────────────
 
@@ -224,16 +198,21 @@
         };
         renderer.render();
 
-        // Firestore — seat status updates en temps réel
-        if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
-        unsubFirestore = subscribeSeats(placioEventId, (changes) => {
+        // Mercure — seat status updates en temps réel
+        if (mercureES) { mercureES.close(); mercureES = null; }
+        // Toujours relatif à l'origine de l'API (évite les URL internes Docker en prod)
+        const esUrl = new URL(`${API_BASE}/.well-known/mercure`);
+        esUrl.searchParams.append('topic', `event/${placioEventId}/seats`);
+        mercureES = new EventSource(esUrl.toString());
+        mercureES.onmessage = (e) => {
+          const changes = JSON.parse(e.data);
           emit('seatUpdate', { changes });
           if (renderer) {
             try {
               renderer.updateSeats(changes.map(c => ({ seatKey: c.seatKey, status: c.status })));
             } catch (_) {}
           }
-        });
+        };
 
         emit('ready', { sessionToken, holdToken, eventId: placioEventId });
 
@@ -247,7 +226,7 @@
     init();
 
     window.addEventListener('beforeunload', () => {
-      if (unsubFirestore) unsubFirestore();
+      if (mercureES) { mercureES.close(); mercureES = null; }
     });
   })();
   </script>
