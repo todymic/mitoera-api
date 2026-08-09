@@ -135,6 +135,7 @@ services:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
       - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
+      - ./.env.sandbox:/app/.env.sandbox:ro
     env_file:
       - .env.sandbox
     environment:
@@ -163,6 +164,7 @@ services:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
       - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
+      - ./.env.sandbox:/app/.env.sandbox:ro
     env_file:
       - .env.sandbox
     environment:
