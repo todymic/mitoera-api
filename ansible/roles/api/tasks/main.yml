@@ -46,6 +46,7 @@
       - nginx
       - database
       - redis
+      - mercure
     state: present
     build: always
     pull: missing
