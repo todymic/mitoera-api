@@ -200,8 +200,8 @@
 
         // Mercure — seat status updates en temps réel
         if (mercureES) { mercureES.close(); mercureES = null; }
-        // Toujours relatif à l'origine de l'API (évite les URL internes Docker en prod)
-        const esUrl = new URL(`${API_BASE}/.well-known/mercure`);
+        const mercureHub = eventData.mercurePublicUrl || `${API_BASE}/.well-known/mercure`;
+        const esUrl = new URL(mercureHub);
         esUrl.searchParams.append('topic', `event/${placioEventId}/seats`);
         mercureES = new EventSource(esUrl.toString());
         mercureES.onmessage = (e) => {
