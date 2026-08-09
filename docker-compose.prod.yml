@@ -115,6 +115,21 @@ services:
       retries: 5
       start_period: 60s
 
+  mercure:
+    image: dunglas/mercure
+    container_name: mitoera-mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':3010'
+      MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_JWT_SECRET}'
+      MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_JWT_SECRET}'
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins https://mitoera.com https://api.mitoera.com https://admin.mitoera.com
+        anonymous
+        subscriptions
+    networks:
+      - mitoera-network
+
   redis:
     image: redis:7-alpine
     container_name: mitoera-redis
