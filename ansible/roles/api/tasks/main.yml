@@ -106,6 +106,20 @@
   debug:
     msg: "{{ migrations.stdout }}"
 
+- name: Lire le mot de passe sandbox depuis .env.sandbox
+  shell: "grep '^POSTGRES_PASSWORD=' {{ api_path }}/.env.sandbox | cut -d= -f2"
+  register: sandbox_db_password
+  become: false
+  changed_when: false
+
+- name: Synchroniser le mot de passe sandbox DB (idempotent — corrige les volumes pré-existants)
+  shell: >
+    docker exec mitoera-database-sandbox
+    psql -U tody -d mitoera_sandbox
+    -c "ALTER USER tody WITH PASSWORD '{{ sandbox_db_password.stdout }}';"
+  become: true
+  ignore_errors: true
+
 - name: Exécuter les migrations Doctrine (sandbox)
   community.docker.docker_container_exec:
     container: mitoera-app-sandbox
