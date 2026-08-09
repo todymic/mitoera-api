@@ -32,6 +32,7 @@
       this.divId            = options.divId;
       this.workspaceKey     = options.workspaceKey;
       this.eventId          = options.event;
+      this.sandbox          = options.sandbox === true;
       this.onSeatSelected    = options.onSeatSelected    || null;
       this.onSeatDeselected  = options.onSeatDeselected  || null;
       this.onSelectionChange = options.onSelectionChange || null;
@@ -54,8 +55,9 @@
       container.innerHTML = '';
       container.style.cssText += ';overflow:hidden;position:relative;';
 
-      // Build iframe URL
-      const url = new URL(`${API_BASE}/render`);
+      // Build iframe URL — sandbox mode uses /sandbox-render served by app-sandbox
+      const renderPath = this.sandbox ? '/sandbox-render' : '/render';
+      const url = new URL(`${API_BASE}${renderPath}`);
       url.searchParams.set('key',   this.workspaceKey);
       url.searchParams.set('event', this.eventId);
       if (this.onCheckout) url.searchParams.set('checkout', '1');

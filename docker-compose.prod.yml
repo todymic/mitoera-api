@@ -125,6 +125,77 @@ services:
       - "traefik.http.routers.mitoera-admin.tls.certresolver=letsencrypt"
       - "traefik.http.services.mitoera-admin.loadbalancer.server.port=80"
 
+  # ─── Sandbox ────────────────────────────────────────────────────────────────
+
+  app-sandbox:
+    image: mitoera/app:latest
+    container_name: mitoera-app-sandbox
+    restart: unless-stopped
+    volumes:
+      - ./var-sandbox:/app/var
+      - ./config/jwt:/app/config/jwt:ro
+      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
+    env_file:
+      - .env.sandbox
+    environment:
+      REDIS_URL: redis://redis:6379
+      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
+    expose:
+      - "9000"
+    depends_on:
+      database-sandbox:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mitoera-network
+
+  cron-sandbox:
+    image: mitoera/app:latest
+    container_name: mitoera-cron-sandbox
+    restart: unless-stopped
+    command: >
+      sh -c "while true; do
+        php bin/console app:expire-holds --no-interaction;
+        sleep 60;
+      done"
+    volumes:
+      - ./var-sandbox:/app/var
+      - ./config/jwt:/app/config/jwt:ro
+      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
+    env_file:
+      - .env.sandbox
+    environment:
+      REDIS_URL: redis://redis:6379
+      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
+    depends_on:
+      database-sandbox:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mitoera-network
+
+  database-sandbox:
+    image: postgres:16-alpine
+    container_name: mitoera-database-sandbox
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mitoera_sandbox
+      POSTGRES_USER: tody
+      POSTGRES_PASSWORD: ${SANDBOX_DB_PASSWORD:-sandbox_pass}
+    volumes:
+      - database_sandbox_data:/var/lib/postgresql/data:rw
+    networks:
+      - mitoera-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "mitoera_sandbox", "-U", "tody"]
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ─── Production DB ──────────────────────────────────────────────────────────
+
   database:
     image: postgres:16-alpine
     container_name: mitoera-database
@@ -168,6 +239,7 @@ services:
 
 volumes:
   database_data:
+  database_sandbox_data:
   redis_data:
   public_shared:
 

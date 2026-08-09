@@ -14,6 +14,7 @@ use App\Exception\DuplicateKeyException;
 use App\Exception\ResourceNotFoundException;
 use App\Repository\CategoryRepository;
 use App\Repository\ChartRepository;
+use App\Repository\AppSettingRepository;
 use App\Repository\EventRepository;
 use App\Port\SeatPublisherPort;
 use App\Repository\EventSeatRepository;
@@ -28,6 +29,7 @@ class EventService
         private CategoryRepository $categoryRepository,
         private EntityManagerInterface $em,
         private SeatPublisherPort $publisher,
+        private AppSettingRepository $settingRepository,
         private string $mercurePublicUrl = '',
     ) {
     }
@@ -42,6 +44,9 @@ class EventService
         $event = new Event();
         $event->setTitle($request->title);
         $event->setIdentifier($request->identifier);
+        $event->setHoldDurationMinutes(
+            (int) $this->settingRepository->get('default_hold_duration_minutes', '10')
+        );
 
         if ($request->chartId) {
             if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $request->chartId)) {

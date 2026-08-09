@@ -36,8 +36,8 @@ class Event
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
-    #[ORM\Column(type: 'integer', options: ['default' => 15])]
-    private int $holdDurationMinutes = 15;
+    #[ORM\Column(type: 'integer', options: ['default' => 10])]
+    private int $holdDurationMinutes = 10;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;

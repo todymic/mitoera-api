@@ -21,6 +21,7 @@ class RenderController extends AbstractController
         private ApiKeyRepository $apiKeyRepository,
         private EventRepository $eventRepository,
         private string $projectDir,
+        private string $appEnv = 'prod',
     ) {}
 
     public function __invoke(Request $request): Response
@@ -41,6 +42,10 @@ class RenderController extends AbstractController
         }
 
         $html = file_get_contents($this->projectDir . '/public/render.html');
+
+        $apiPrefix = $this->appEnv === 'sandbox' ? '/sandbox-api' : '/api';
+        $injection = "<script>window.__MITOERA_API_PREFIX__ = '{$apiPrefix}';</script>";
+        $html = str_replace('</head>', $injection . '</head>', $html);
 
         return new Response($html, Response::HTTP_OK, [
             'Content-Type'  => 'text/html; charset=UTF-8',

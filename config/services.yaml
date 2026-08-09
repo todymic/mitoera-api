@@ -70,9 +70,15 @@ services:
             $redisUrl: '%env(string:REDIS_URL)%'
         tags: ['controller.service_arguments']
 
+    App\Controller\SandboxController:
+        arguments:
+            $appEnv: '%env(string:APP_ENV)%'
+        tags: ['controller.service_arguments']
+
     App\Controller\RenderController:
         arguments:
             $projectDir: '%kernel.project_dir%'
+            $appEnv: '%env(string:APP_ENV)%'
         tags: ['controller.service_arguments']
 
     App\Service\MercureTokenService:

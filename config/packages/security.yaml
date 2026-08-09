@@ -50,6 +50,8 @@ security:
         - { path: ^/api/widget, roles: ROLE_WIDGET }
         # Sessions publiques — auth via clé secrète API (scope PUBLIC)
         - { path: ^/api/public/sessions, roles: ROLE_PUBLIC }
+        - { path: ^/api/settings, roles: ROLE_BACKOFFICE }
+        - { path: ^/api/admin/sandbox, roles: ROLE_ADMIN }
         - { path: ^/api/admin, roles: ROLE_ADMIN }
         - { path: ^/api/api-keys, roles: ROLE_BACKOFFICE }
         - { path: ^/api/categories, methods: [POST, PUT, DELETE], roles: ROLE_BACKOFFICE }
