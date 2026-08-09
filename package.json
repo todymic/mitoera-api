@@ -1,17 +1,19 @@
 {
-  "name": "mitoera-api",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/todymic/mitoera-api.git"
-  },
-  "private": true,
-  "dependencies": {
-    "vite": "^8.2.1"
-  }
+    "name": "mitoera-api",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "build": "vite build && BUILD_TARGET=render vite build",
+        "dev": "vite build --watch"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/todymic/mitoera-api.git"
+    },
+    "private": true,
+    "dependencies": {
+        "terser": "^5.49.2",
+        "vite": "^8.2.1"
+    }
 }

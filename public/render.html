@@ -198,7 +198,7 @@
         };
         renderer.render();
 
-        // Mercure — seat status updates en temps réel (token authentifié)
+        // Mercure — seat status updates + plan updates en temps réel
         if (mercureES) { mercureES.close(); mercureES = null; }
         const mercureHub = eventData.mercurePublicUrl || `${API_BASE}/.well-known/mercure`;
 
@@ -213,10 +213,31 @@
 
         const esUrl = new URL(mercureHub);
         esUrl.searchParams.append('topic', `event/${mitoerEventId}/seats`);
+        if (eventData.chartSlug) esUrl.searchParams.append('topic', `chart/${eventData.chartSlug}`);
         if (mercureToken) esUrl.searchParams.append('authorization', mercureToken);
         mercureES = new EventSource(esUrl.toString());
         mercureES.onmessage = (e) => {
-          const changes = JSON.parse(e.data);
+          const msg = JSON.parse(e.data);
+
+          // Mise à jour du plan (publication depuis le BO)
+          if (msg.type === 'chartUpdated') {
+            fetch(`${API_BASE}${API_PREFIX}/widget/events/${mitoerEventId}`, {
+              headers: { Authorization: `Widget ${sessionToken}` },
+            }).then(r => r.ok ? r.json() : null).then(data => {
+              if (!data || !renderer) return;
+              renderer.reload({
+                chartObjects: data.publishedSnapshot || [],
+                categories:   data.categories || [],
+                seats:        data.seats || [],
+              });
+              emit('planUpdated', {});
+            }).catch(() => {});
+            return;
+          }
+
+          // Mise à jour des statuts de sièges
+          const changes = Array.isArray(msg) ? msg : null;
+          if (!changes) return;
           emit('seatUpdate', { changes });
           if (renderer) {
             try {

@@ -47,6 +47,19 @@ class RenderController extends AbstractController
         $injection = "<script>window.__MITOERA_API_PREFIX__ = '{$apiPrefix}';</script>";
         $html = str_replace('</head>', $injection . '</head>', $html);
 
+        // Cache-bust mitoera-render.js by its own mtime: the file is served as
+        // a plain static asset with no Cache-Control header, so browsers apply
+        // heuristic caching and can silently keep running a stale version
+        // after an edit. Renders every server-rendered call, so this always
+        // reflects what's actually on disk.
+        $rendererPath = $this->projectDir . '/public/mitoera-render.js';
+        $rendererVersion = is_file($rendererPath) ? (string) filemtime($rendererPath) : '1';
+        $html = str_replace(
+            'src="/mitoera-render.js"',
+            'src="/mitoera-render.js?v=' . $rendererVersion . '"',
+            $html
+        );
+
         return new Response($html, Response::HTTP_OK, [
             'Content-Type'  => 'text/html; charset=UTF-8',
             'Cache-Control' => 'no-store',
