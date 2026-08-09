@@ -47,6 +47,7 @@
       - database
       - redis
       - mercure
+      - cron
     state: present
     build: always
     pull: missing
