@@ -184,10 +184,11 @@ services:
     image: postgres:16-alpine
     container_name: mitoera-database-sandbox
     restart: unless-stopped
+    env_file:
+      - .env.sandbox
     environment:
       POSTGRES_DB: mitoera_sandbox
       POSTGRES_USER: tody
-      POSTGRES_PASSWORD: ${SANDBOX_DB_PASSWORD:-sandbox_pass}
     volumes:
       - database_sandbox_data:/var/lib/postgresql/data:rw
     networks:
