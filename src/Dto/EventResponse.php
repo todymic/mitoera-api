@@ -13,6 +13,7 @@ class EventResponse
         public ?Uuid $chartId = null,
         public ?string $chartName = null,
         public ?\DateTimeImmutable $createdAt = null,
+        public int $holdDurationMinutes = 15,
     ) {
     }
 }

@@ -338,6 +338,18 @@ class EventService
         return $result ?: (string)($n + 1);
     }
 
+    public function updateHoldDuration(string $id, int $minutes): EventResponse
+    {
+        $event = $this->eventRepository->find($id);
+        if (!$event) {
+            throw new ResourceNotFoundException('Event not found');
+        }
+        $event->setHoldDurationMinutes($minutes);
+        $this->em->persist($event);
+        $this->em->flush();
+        return $this->toResponse($event);
+    }
+
     private function toResponse(Event $event): EventResponse
     {
         return new EventResponse(
@@ -347,6 +359,7 @@ class EventService
             $event->getChart()?->getId(),
             $event->getChart()?->getName(),
             $event->getCreatedAt(),
+            $event->getHoldDurationMinutes(),
         );
     }
 
@@ -380,6 +393,7 @@ class EventService
             $categories,
             $this->mercurePublicUrl ?: null,
             $chart?->getSlug(),
+            $event->getHoldDurationMinutes(),
         );
     }
 }

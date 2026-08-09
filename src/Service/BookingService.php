@@ -78,8 +78,9 @@ class BookingService
             $seats[] = $seat;
         }
 
-        $holdDurationSeconds = $this->holdDurationMinutes * 60;
-        $expiresAt = new \DateTimeImmutable("+$this->holdDurationMinutes minutes");
+        $holdDurationMinutes = $event->getHoldDurationMinutes();
+        $holdDurationSeconds = $holdDurationMinutes * 60;
+        $expiresAt = new \DateTimeImmutable("+$holdDurationMinutes minutes");
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {

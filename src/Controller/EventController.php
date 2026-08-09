@@ -115,6 +115,27 @@ class EventController extends AbstractController
         return $this->json($response);
     }
 
+    #[Route('/{id}/hold-duration', methods: ['PATCH'])]
+    #[IsGranted('ROLE_BACKOFFICE')]
+    #[OA\Tag(name: 'Events')]
+    #[OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(
+            required: ['holdDurationMinutes'],
+            properties: [new OA\Property(property: 'holdDurationMinutes', type: 'integer', example: 15)]
+        )
+    )]
+    #[OA\Response(response: 200, description: 'Duree de hold mise a jour')]
+    #[OA\Response(response: 404, description: 'Evenement introuvable')]
+    public function updateHoldDuration(string $id, Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $minutes = (int) ($data['holdDurationMinutes'] ?? 15);
+        $response = $this->eventService->updateHoldDuration($id, $minutes);
+        return $this->json($response);
+    }
+
     #[Route('/{id}', methods: ['DELETE'])]
     #[IsGranted('ROLE_BACKOFFICE')]
     #[OA\Tag(name: 'Events')]

@@ -36,6 +36,9 @@ class Event
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'integer', options: ['default' => 15])]
+    private int $holdDurationMinutes = 15;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
@@ -115,6 +118,14 @@ class Event
 
     public function getOwner(): ?User { return $this->owner; }
     public function setOwner(?User $owner): self { $this->owner = $owner; return $this; }
+
+    public function getHoldDurationMinutes(): int { return $this->holdDurationMinutes; }
+    public function setHoldDurationMinutes(int $minutes): self
+    {
+        $this->holdDurationMinutes = max(1, $minutes);
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
 
     public function getCreatedAt(): \DateTimeImmutable
     {

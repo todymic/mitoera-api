@@ -19,6 +19,7 @@ class EventDetailResponse
         public array $categories = [],
         public ?string $mercurePublicUrl = null,
         public ?string $chartSlug = null,
+        public int $holdDurationMinutes = 15,
     ) {
     }
 }
