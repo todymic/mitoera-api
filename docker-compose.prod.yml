@@ -135,10 +135,13 @@ services:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
       - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
-      - ./.env.sandbox:/app/.env.sandbox:ro
     env_file:
-      - .env.sandbox
+      - .env.prod
     environment:
+      APP_ENV: prod
+      APP_SANDBOX: "true"
+      POSTGRES_DB: mitoera_sandbox
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database-sandbox:5432/mitoera_sandbox?serverVersion=16&charset=utf8"
       REDIS_URL: redis://redis:6379
       FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     expose:
@@ -164,10 +167,13 @@ services:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
       - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
-      - ./.env.sandbox:/app/.env.sandbox:ro
     env_file:
-      - .env.sandbox
+      - .env.prod
     environment:
+      APP_ENV: prod
+      APP_SANDBOX: "true"
+      POSTGRES_DB: mitoera_sandbox
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database-sandbox:5432/mitoera_sandbox?serverVersion=16&charset=utf8"
       REDIS_URL: redis://redis:6379
       FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     depends_on:

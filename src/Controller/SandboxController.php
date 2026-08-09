@@ -17,20 +17,18 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_ADMIN')]
 class SandboxController extends AbstractController
 {
-    private const SANDBOX_ENV = 'sandbox';
-
     public function __construct(
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $hasher,
         private ApiKeyService $apiKeyService,
-        private string $appEnv = 'prod',
+        private string $appSandbox = 'false',
     ) {
     }
 
     #[Route('/reset', methods: ['POST'])]
     public function reset(): JsonResponse
     {
-        if ($this->appEnv !== self::SANDBOX_ENV) {
+        if ($this->appSandbox !== 'true') {
             return $this->json(['error' => 'Reset is only available in sandbox mode'], Response::HTTP_FORBIDDEN);
         }
 
@@ -79,8 +77,7 @@ class SandboxController extends AbstractController
     public function status(): JsonResponse
     {
         return $this->json([
-            'sandbox' => $this->appEnv === self::SANDBOX_ENV,
-            'env'     => $this->appEnv,
+            'sandbox' => $this->appSandbox === 'true',
         ]);
     }
 }
