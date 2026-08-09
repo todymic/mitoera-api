@@ -20,7 +20,7 @@
   'use strict';
 
   const API_BASE = (function () {
-    const scripts = document.querySelectorAll('script[src*="placio-widget"]');
+    const scripts = document.querySelectorAll('script[src*="mitoera-widget"]');
     if (scripts.length) {
       try { return new URL(scripts[scripts.length - 1].src).origin; } catch (_) {}
     }

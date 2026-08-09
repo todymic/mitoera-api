@@ -45,7 +45,7 @@
 
 <div id="log">Logs…</div>
 
-<script src="/placio-widget.js"></script>
+<script src="/mitoera-widget.js"></script>
 <script>
 const API_BASE = location.origin;
 
@@ -72,8 +72,8 @@ function updateButtons() {
 
 const chart = new Placio.SeatingChart({
   divId: 'chart',
-  workspaceKey: 'pk_pub_d0b6ca46',
-  event: 'test',
+  workspaceKey: 'pk_pub_06177d32',
+  event: 'barea',
   onSeatSelected:   (s) => log('✓ sélectionné : ' + s.seatKey + ' (' + (s.catName || '—') + ')'),
   onSeatDeselected: (s) => log('✕ désélectionné : ' + s.seatKey),
   onSelectionChange: (seats) => {
@@ -133,7 +133,7 @@ btnRelease.addEventListener('click', async () => {
 // Écoute les updates Firestore remontées par l'iframe render.html
 window.addEventListener('message', (e) => {
   const { type, changes } = e.data || {};
-  if (type === 'placio:seatUpdate' && changes?.length) {
+  if (type === 'mitoera:seatUpdate' && changes?.length) {
     log('🔥 Firestore — ' + changes.map(c => c.seatKey + ':' + c.status).join(', '));
   }
 });
