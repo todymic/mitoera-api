@@ -127,6 +127,7 @@ services:
         cors_origins https://mitoera.com https://api.mitoera.com https://admin.mitoera.com
         anonymous
         subscriptions
+        ui
     networks:
       - mitoera-network
 
