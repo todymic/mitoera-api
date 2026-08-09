@@ -42,7 +42,7 @@
       this._iframe          = null;
       this._sessionToken    = null;
       this._holdToken       = null;
-      this._placioEventId   = null;
+      this._mitoerEventId   = null;
       this._lastSeats       = [];
       this._listener        = null;
     }
@@ -99,7 +99,7 @@
         const inFs = document.fullscreenElement === container;
         setFsState(inFs);
         iframe.style.borderRadius = inFs ? '0' : radius;
-        iframe.contentWindow.postMessage({ type: 'placio:fullscreenChange', inFs }, '*');
+        iframe.contentWindow.postMessage({ type: 'mitoera:fullscreenChange', inFs }, '*');
       };
       document.addEventListener('fullscreenchange', onFsChange);
       this._fsBtn = fsBtn;
@@ -112,40 +112,40 @@
         const { type, ...data } = e.data || {};
 
         switch (type) {
-          case 'placio:ready':
+          case 'mitoera:ready':
             this._sessionToken  = data.sessionToken;
             this._holdToken     = data.holdToken;
-            this._placioEventId = data.eventId;
+            this._mitoerEventId = data.eventId;
             if (this.onReady) this.onReady({ sessionToken: data.sessionToken, holdToken: data.holdToken, eventId: data.eventId });
             // Push category prices now that the iframe is ready
             if (Object.keys(this.categoryPrices).length) {
               iframe.contentWindow.postMessage({
-                type: 'placio:setCategoryPrices',
+                type: 'mitoera:setCategoryPrices',
                 prices: this.categoryPrices,
               }, '*');
             }
             break;
 
-          case 'placio:seatSelected':
+          case 'mitoera:seatSelected':
             if (this.onSeatSelected) this.onSeatSelected(data.seat);
             break;
 
-          case 'placio:seatDeselected':
+          case 'mitoera:seatDeselected':
             if (this.onSeatDeselected) this.onSeatDeselected(data.seat);
             break;
 
-          case 'placio:selectionChange':
+          case 'mitoera:selectionChange':
             this._lastSeats = data.seats || [];
             if (this.onSelectionChange) this.onSelectionChange(this._lastSeats);
             break;
 
-          case 'placio:checkout':
+          case 'mitoera:checkout':
             if (this.onCheckout) this.onCheckout(data.seats || []);
             break;
 
 
 
-          case 'placio:error':
+          case 'mitoera:error':
             console.error('[Mitoera]', data.message);
             break;
         }
@@ -160,7 +160,7 @@
 
     getSessionToken()  { return this._sessionToken; }
     getHoldToken()     { return this._holdToken; }
-    getEventId()       { return this._placioEventId; }
+    getEventId()       { return this._mitoerEventId; }
 
     /** Remove the iframe and clean up listeners. */
     destroy() {
