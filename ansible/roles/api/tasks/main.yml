@@ -8,6 +8,10 @@
     force: true
   become: false
 
+- name: Nettoyer le build cache Docker (évite les SHA orphelins)
+  shell: docker buildx prune -f --keep-storage=500mb
+  ignore_errors: true
+
 - name: Créer le dossier var avec les bonnes permissions (uid 82 = www-data Alpine)
   file:
     path: "{{ api_path }}/var/{{ item }}"
