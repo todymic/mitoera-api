@@ -18,7 +18,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #fff; }
-    #wrapper { display: flex; flex-direction: column; height: 100%; }
+    #wrapper { display: flex; flex-direction: column; height: 100%; position: relative; }
     #chart { flex: 1; min-height: 0; }
     #stats-bar {
       flex-shrink: 0;
@@ -71,10 +71,31 @@
       opacity: 1;
       transform: scale(1);
     }
+
+    #loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.2s ease;
+    }
+    #loader.loader-hidden { opacity: 0; }
+    .loader-ring {
+      width: 36px; height: 36px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div id="wrapper">
+    <div id="loader"><div class="loader-ring"></div></div>
     <div id="chart"></div>
     <div id="stats-bar">
       <div id="stats-info"><span id="stats-empty">Aucun siège sélectionné</span></div>
@@ -166,8 +187,6 @@
     // ── init ─────────────────────────────────────────────────────────────────
 
     async function init() {
-      document.getElementById('chart').innerHTML =
-        '<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#9ca3af;font-size:14px;font-family:system-ui">Chargement…</div>';
 
       try {
         // Session
@@ -209,7 +228,10 @@
           updateStatsBar();
         };
         renderer.render();
-        requestAnimationFrame(() => document.getElementById('chart').classList.add('chart-ready'));
+        requestAnimationFrame(() => {
+          document.getElementById('chart').classList.add('chart-ready');
+          setTimeout(() => document.getElementById('loader').classList.add('loader-hidden'), 80);
+        });
 
         // Mercure — seat status updates + plan updates en temps réel
         if (mercureES) { mercureES.close(); mercureES = null; }
