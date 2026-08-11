@@ -22,13 +22,36 @@ class ApiKeyAuthenticator extends AbstractAuthenticator
 
     public function supports(Request $request): ?bool
     {
-        return $request->headers->has('X-Api-Key-Id') && $request->headers->has('X-Api-Key-Secret');
+        if ($request->headers->has('X-Api-Key-Id') && $request->headers->has('X-Api-Key-Secret')) {
+            return true;
+        }
+        $auth = $request->headers->get('Authorization', '');
+        if (str_starts_with($auth, 'ApiKey ')) {
+            return true;
+        }
+        // Authorization: Basic base64(keyId:secret)
+        if (str_starts_with($auth, 'Basic ')) {
+            $decoded = base64_decode(substr($auth, 6), true);
+            return $decoded !== false && str_contains($decoded, ':');
+        }
+        return false;
     }
 
     public function authenticate(Request $request): Passport
     {
         $keyId = $request->headers->get('X-Api-Key-Id');
         $secret = $request->headers->get('X-Api-Key-Secret');
+
+        if (!$keyId || !$secret) {
+            $auth = $request->headers->get('Authorization', '');
+            if (str_starts_with($auth, 'ApiKey ')) {
+                $raw = substr($auth, strlen('ApiKey '));
+                [$keyId, $secret] = explode(':', $raw, 2) + [null, null];
+            } elseif (str_starts_with($auth, 'Basic ')) {
+                $decoded = base64_decode(substr($auth, 6), true);
+                [$keyId, $secret] = explode(':', $decoded, 2) + [null, null];
+            }
+        }
 
         if (!$keyId || !$secret) {
             throw new AuthenticationException('Missing API credentials');

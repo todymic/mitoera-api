@@ -134,7 +134,16 @@
 
     updateSeats(seats) {
       // Full replace when called with all seats (initial load); merge when called with a partial list (Mercure)
-      for (const s of seats||[]) this._statusMap[s.seatKey] = s.status;
+      for (const s of seats||[]) {
+        this._statusMap[s.seatKey] = s.status;
+        // Deselect seats that are no longer available
+        if (s.status !== 'available' && this._selected.has(s.seatKey)) {
+          this._selected.delete(s.seatKey);
+          const catId = this._seatCatMap[s.seatKey] || null;
+          if (this._onDesel) this._onDesel({ seatKey: s.seatKey, catId, catColor: this._catColor(catId), catName: this._catName(catId) });
+        }
+      }
+      if (this._onSelectionChange) this._onSelectionChange();
       this._refreshColors();
     }
 
