@@ -19,13 +19,11 @@ services:
       # Partagé avec nginx pour servir les assets statiques
       - public_shared:/app/public_shared
       # Credentials Firebase (ne pas committer le fichier JSON)
-      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
     env_file:
       - .env.prod
     environment:
       # Surcharge : pointe sur le service Redis, pas 127.0.0.1
       REDIS_URL: redis://redis:6379
-      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     expose:
       - "9000"
     depends_on:
@@ -48,12 +46,10 @@ services:
     volumes:
       - ./var:/app/var
       - ./config/jwt:/app/config/jwt:ro
-      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
     env_file:
       - .env.prod
     environment:
       REDIS_URL: redis://redis:6379
-      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     depends_on:
       database:
         condition: service_healthy
@@ -70,12 +66,10 @@ services:
     volumes:
       - ./var:/app/var
       - ./config/jwt:/app/config/jwt:ro
-      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
     env_file:
       - .env.prod
     environment:
       REDIS_URL: redis://redis:6379
-      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     depends_on:
       database:
         condition: service_healthy
@@ -156,14 +150,12 @@ services:
     volumes:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
-      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
     env_file:
       - .env.sandbox
     environment:
       APP_ENV: prod
       APP_SANDBOX: "true"
       REDIS_URL: redis://redis:6379
-      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     expose:
       - "9000"
     depends_on:
@@ -186,14 +178,12 @@ services:
     volumes:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro
-      - ./config/mitoera-firebas-credentials.json:/app/config/mitoera-firebas-credentials.json:ro
     env_file:
       - .env.sandbox
     environment:
       APP_ENV: prod
       APP_SANDBOX: "true"
       REDIS_URL: redis://redis:6379
-      FIREBASE_CREDENTIALS_PATH: /app/config/mitoera-firebas-credentials.json
     depends_on:
       database-sandbox:
         condition: service_healthy
