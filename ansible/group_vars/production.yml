@@ -6,5 +6,3 @@ api_path: /home/debian/mitoera/api
 ui_path: /home/debian/mitoera/ui
 admin_path: /home/debian/mitoera/admin
 
-firebase_credentials_local: "{{ playbook_dir }}/../config/mitoera-firebas-credentials.json"
-firebase_credentials_remote: "{{ api_path }}/config/mitoera-firebas-credentials.json"

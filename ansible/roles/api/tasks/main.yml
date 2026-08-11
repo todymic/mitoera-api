@@ -8,12 +8,6 @@
     force: true
   become: false
 
-- name: Copier les credentials Firebase (fichier secret hors git)
-  copy:
-    src: "{{ firebase_credentials_local }}"
-    dest: "{{ firebase_credentials_remote }}"
-    mode: "0644"
-
 - name: Créer le dossier var avec les bonnes permissions (uid 82 = www-data Alpine)
   file:
     path: "{{ api_path }}/var/{{ item }}"
