@@ -1,30 +1,139 @@
 nelmio_api_doc:
     documentation:
         info:
-            title: Place API
-            description: API de reservation de sieges (JWT + API Keys)
+            title: Mitoera API
+            description: |
+                ## Authentification
+
+                ### Widget (accès public)
+                Les endpoints `/api/public/**` et `/api/widget/**` sont destinés aux applications clientes embarquant le widget.
+
+                **Étape 1 — Créer une session**
+                ```
+                POST /api/public/events/{slug}/session
+                Body: { "publicKeyId": "pk_pub_xxxx" }
+                → { sessionToken, holdToken, eventId, expiresIn }
+                ```
+
+                **Étape 2 — Utiliser le sessionToken**
+                Toutes les requêtes widget portent l'header :
+                ```
+                Authorization: Widget <sessionToken>
+                ```
+
+                ### Back-office (JWT)
+                Les endpoints `/api/**` nécessitent un JWT obtenu via `POST /api/auth/login`.
+                ```
+                Authorization: Bearer <jwt>
+                ```
+
+                ### API Keys (accès programmatique BO)
+                Alternative au JWT pour les intégrations machine-to-machine :
+                ```
+                Authorization: Basic base64(keyId:secret)
+                ```
+                ou avec deux headers séparés :
+                ```
+                X-Api-Key-Id: pk_bo_xxxx
+                X-Api-Key-Secret: sk_xxxx
+                ```
             version: 1.0.0
+            contact:
+                name: Support Mitoera
+                email: support@mitoera.com
+        tags:
+            - name: Widget
+              description: Endpoints publics pour les applications clientes (iframe ou JS SDK)
+            - name: Auth
+              description: Authentification back-office (JWT)
+            - name: Events
+              description: Gestion des événements
+            - name: API Keys
+              description: Gestion des clés API
         components:
             securitySchemes:
                 Bearer:
                     type: http
                     scheme: bearer
                     bearerFormat: JWT
+                    description: JWT obtenu via POST /api/auth/login
+                WidgetToken:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: Widget JWT
+                    description: sessionToken obtenu via POST /api/public/events/{slug}/session
+                ApiKeyBasic:
+                    type: http
+                    scheme: basic
+                    description: "Basic Auth encodé base64 : keyId:secret"
                 ApiKeyId:
                     type: apiKey
                     in: header
                     name: X-Api-Key-Id
+                    description: keyId de la clé API (préfixe pk_bo_)
                 ApiKeySecret:
                     type: apiKey
                     in: header
                     name: X-Api-Key-Secret
+                    description: secret de la clé API (préfixe sk_)
+            schemas:
+                SessionResponse:
+                    type: object
+                    properties:
+                        sessionToken:
+                            type: string
+                            description: JWT widget (durée 1h) — à passer dans Authorization: Widget
+                        holdToken:
+                            type: string
+                            format: uuid
+                            description: Identifiant de session de hold (géré automatiquement par le SDK)
+                        eventId:
+                            type: string
+                            format: uuid
+                        expiresIn:
+                            type: integer
+                            example: 3600
+                SeatKey:
+                    type: string
+                    description: Identifiant unique du siège (ex. A-1-3, TABLE-2-4)
+                    example: "A-1-3"
+                SeatStatus:
+                    type: string
+                    enum: [available, held, booked]
+                    description: Statut d'un siège
+                HoldRequest:
+                    type: object
+                    required: [seatKeys]
+                    properties:
+                        seatKeys:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/SeatKey'
+                            example: ["A-1-3", "A-1-4"]
+                HoldResponse:
+                    type: object
+                    properties:
+                        heldSeats:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/SeatKey'
+                        holdToken:
+                            type: string
+                            format: uuid
+                        expiresAt:
+                            type: string
+                            format: date-time
+                BookResponse:
+                    type: object
+                    properties:
+                        bookedSeats:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/SeatKey'
         security:
             - Bearer: []
-            - ApiKeyId: []
-              ApiKeySecret: []
+            - ApiKeyBasic: []
     areas:
         default:
             path_patterns:
                 - ^/api(?!/doc$|/doc\.json$)
-
-

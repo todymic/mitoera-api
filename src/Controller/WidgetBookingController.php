@@ -29,18 +29,19 @@ class WidgetBookingController extends AbstractController
     }
 
     #[Route('/hold', methods: ['POST'])]
+    #[OA\Post(
+        summary: 'Bloquer des sièges temporairement (hold)',
+        description: "Réserve temporairement les sièges pour l'utilisateur courant pendant la durée de la session (généralement 10 min).\n\nSi un siège est déjà bloqué par une autre session, l'endpoint retourne 409.\n\nLe `holdToken` est géré automatiquement par le SDK widget — vous n'avez pas à le manipuler.",
+        security: [['WidgetToken' => []]],
+    )]
     #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\RequestBody(
         required: true,
-        content: new OA\JsonContent(
-            required: ['seatKeys'],
-            properties: [
-                new OA\Property(property: 'seatKeys', type: 'array', items: new OA\Items(type: 'string')),
-            ]
-        )
+        content: new OA\JsonContent(ref: '#/components/schemas/HoldRequest')
     )]
-    #[OA\Response(response: 200, description: 'Sièges bloqués temporairement')]
-    #[OA\Response(response: 409, description: 'Conflit — sièges déjà pris')]
+    #[OA\Response(response: 200, description: 'Sièges bloqués', content: new OA\JsonContent(ref: '#/components/schemas/HoldResponse'))]
+    #[OA\Response(response: 403, description: 'Token ne correspond pas à cet événement')]
+    #[OA\Response(response: 409, description: 'Conflit — un ou plusieurs sièges déjà pris')]
     public function hold(string $eventId, Request $request): JsonResponse
     {
         /** @var WidgetSessionUser $user */
@@ -65,17 +66,15 @@ class WidgetBookingController extends AbstractController
     }
 
     #[Route('/release', methods: ['POST'])]
-    #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
-    #[OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(
-            required: ['seatKeys'],
-            properties: [
-                new OA\Property(property: 'seatKeys', type: 'array', items: new OA\Items(type: 'string')),
-            ]
-        )
+    #[OA\Post(
+        summary: 'Libérer des sièges bloqués',
+        description: "Annule le hold sur les sièges spécifiés et les remet en statut `available`.\n\nAppeler cet endpoint quand l'utilisateur désélectionne des sièges ou abandonne sa sélection.",
+        security: [['WidgetToken' => []]],
     )]
-    #[OA\Response(response: 200, description: 'Sièges libérés')]
+    #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/HoldRequest'))]
+    #[OA\Response(response: 200, description: 'Sièges libérés', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string', example: 'Seats released')]))]
+    #[OA\Response(response: 403, description: 'Token ne correspond pas à cet événement')]
     public function release(string $eventId, Request $request): JsonResponse
     {
         /** @var WidgetSessionUser $user */
@@ -124,17 +123,16 @@ class WidgetBookingController extends AbstractController
     }
 
     #[Route('/book', methods: ['POST'])]
-    #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
-    #[OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(
-            required: ['seatKeys'],
-            properties: [
-                new OA\Property(property: 'seatKeys', type: 'array', items: new OA\Items(type: 'string')),
-            ]
-        )
+    #[OA\Post(
+        summary: 'Confirmer la réservation (book)',
+        description: "Confirme définitivement la réservation des sièges préalablement bloqués via `/hold`.\n\nLes sièges passent en statut `booked` et sont exclus des futures sessions.\n\nAppeler uniquement après un paiement validé ou une confirmation métier.",
+        security: [['WidgetToken' => []]],
     )]
-    #[OA\Response(response: 200, description: 'Réservation confirmée')]
+    #[OA\Parameter(name: 'eventId', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/HoldRequest'))]
+    #[OA\Response(response: 200, description: 'Réservation confirmée', content: new OA\JsonContent(ref: '#/components/schemas/BookResponse'))]
+    #[OA\Response(response: 403, description: 'Token ne correspond pas à cet événement')]
+    #[OA\Response(response: 409, description: 'Sièges non bloqués ou expirés')]
     public function book(string $eventId, Request $request): JsonResponse
     {
         /** @var WidgetSessionUser $user */

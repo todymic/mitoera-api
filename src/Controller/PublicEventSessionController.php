@@ -29,17 +29,37 @@ class PublicEventSessionController extends AbstractController
     ) {
     }
 
-    #[OA\Parameter(name: 'identifier', in: 'path', required: true, schema: new OA\Schema(type: 'string'))]
+    #[OA\Post(
+        summary: 'Créer une session widget',
+        description: "Point d'entrée principal pour toute application cliente embarquant le widget.\n\n1. Appelez cet endpoint avec votre clé publique (`pk_pub_...`) et le slug de l'événement.\n2. Récupérez le `sessionToken` dans la réponse.\n3. Passez ce token dans `Authorization: Widget <sessionToken>` pour tous les appels suivants (`/api/widget/**`).\n\nLe token expire après 1 heure. La session est anonyme — aucun compte utilisateur n'est requis.",
+        security: [],
+    )]
+    #[OA\Parameter(
+        name: 'identifier',
+        in: 'path',
+        required: true,
+        description: 'Slug ou UUID de l\'événement',
+        schema: new OA\Schema(type: 'string', example: 'mon-evenement')
+    )]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
             required: ['publicKeyId'],
             properties: [
-                new OA\Property(property: 'publicKeyId', type: 'string', description: 'La clé publique (keyId, préfixe pk_pub_)'),
+                new OA\Property(
+                    property: 'publicKeyId',
+                    type: 'string',
+                    description: 'Clé publique — préfixe `pk_pub_`, visible dans Paramètres > Clés API du back-office.',
+                    example: 'pk_pub_d0b6ca46'
+                ),
             ]
         )
     )]
-    #[OA\Response(response: 201, description: 'Session token créé')]
+    #[OA\Response(
+        response: 201,
+        description: 'Session créée',
+        content: new OA\JsonContent(ref: '#/components/schemas/SessionResponse')
+    )]
     #[OA\Response(response: 401, description: 'Clé publique invalide ou inactive')]
     #[OA\Response(response: 404, description: 'Événement introuvable')]
     public function __invoke(string $identifier, Request $request): JsonResponse

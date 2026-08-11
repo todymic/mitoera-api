@@ -1,19 +1,111 @@
 /**
- * Placio Widget SDK — iframe edition
+ * Mitoera Widget SDK
  *
- * Usage:
- *   <script src="https://cdn.placio.io/placio-widget.js"></script>
+ * Intègre un plan de salle interactif dans n'importe quelle page web via une iframe.
+ *
+ * ## Installation
+ *
+ *   <script src="https://api.mitoera.com/mitoera-widget.js"></script>
+ *
+ * ## Utilisation minimale
+ *
+ *   <div id="seating" style="width:100%;height:560px"></div>
  *   <script>
- *     new Placio.SeatingChart({
- *       divId: 'my-div',
- *       workspaceKey: 'pk_pub_...',
- *       event: 'event-identifier',
- *       onSeatSelected:   (seat) => {},
- *       onSeatDeselected: (seat) => {},
- *       onCheckout:       (seats) => {},
- *       categoryPrices:   { 'cat-id': { price: 15000, currency: 'AR' } },
- *     }).render();
+ *     const chart = new Mitoera.SeatingChart({
+ *       divId:        'seating',
+ *       workspaceKey: 'pk_pub_xxxx',   // clé publique — visible dans BO > Clés API
+ *       event:        'mon-evenement', // slug ou UUID de l'événement
+ *     });
+ *     chart.render();
  *   </script>
+ *
+ * ## Options du constructeur
+ *
+ * @param {object}   options
+ * @param {string}   options.divId
+ *   ID du `<div>` conteneur. Le widget remplit entièrement ce div.
+ *
+ * @param {string}   options.workspaceKey
+ *   Clé publique de l'espace de travail (préfixe `pk_pub_`).
+ *   Obtenue dans le back-office > Paramètres > Clés API.
+ *   Peut être exposée dans le code front-end.
+ *
+ * @param {string}   options.event
+ *   Slug ou UUID de l'événement à afficher.
+ *
+ * @param {boolean}  [options.sandbox=false]
+ *   Si `true`, le widget se connecte à l'environnement sandbox.
+ *   Utiliser uniquement pour les tests — les réservations sandbox ne sont pas réelles.
+ *
+ * @param {object}   [options.categoryPrices]
+ *   Prix à afficher dans le tooltip de chaque siège, par catégorie.
+ *   Clé : ID de catégorie (string). Valeur : `{ price: number, currency: string }`.
+ *   Exemple : `{ 'abc-123': { price: 15000, currency: 'MGA' } }`
+ *   Peut être mis à jour après `render()` via `chart.setCategoryPrices(prices)`.
+ *
+ * ## Callbacks
+ *
+ * @param {function} [options.onReady]
+ *   Appelé quand le widget est initialisé et prêt à recevoir des interactions.
+ *   @param {{ sessionToken: string, holdToken: string, eventId: string }} data
+ *
+ * @param {function} [options.onSeatSelected]
+ *   Appelé quand l'utilisateur clique sur un siège disponible pour le sélectionner.
+ *   @param {{ seatKey: string, catId: string, catColor: string, catName: string }} seat
+ *
+ * @param {function} [options.onSeatDeselected]
+ *   Appelé quand l'utilisateur désélectionne un siège, ou quand un siège est
+ *   automatiquement désélectionné suite à un hold/book (mise à jour Mercure).
+ *   @param {{ seatKey: string, catId: string, catColor: string, catName: string }} seat
+ *
+ * @param {function} [options.onSelectionChange]
+ *   Appelé à chaque changement de sélection (sélection ou désélection).
+ *   Reçoit le tableau complet des sièges actuellement sélectionnés.
+ *   @param {Array<{ seatKey: string, catId: string, catColor: string, catName: string }>} seats
+ *
+ * @param {function} [options.onCheckout]
+ *   Appelé quand l'utilisateur clique sur le bouton "Valider" dans le widget.
+ *   N'est disponible que si `checkout: true` est passé (bouton affiché dans l'iframe).
+ *   Utilisez ce callback pour déclencher votre propre flux de paiement.
+ *   @param {Array<{ seatKey: string, catId: string, catName: string }>} seats
+ *
+ * ## Méthodes publiques
+ *
+ * @method render()
+ *   Crée l'iframe et charge le plan de salle. À appeler une seule fois.
+ *
+ * @method destroy()
+ *   Supprime l'iframe et nettoie tous les écouteurs d'événements.
+ *   À appeler si le widget est retiré du DOM (navigation SPA, modal fermée, etc.).
+ *
+ * @method getSelectedSeats(): Array
+ *   Retourne le tableau des sièges actuellement sélectionnés par l'utilisateur.
+ *   Même structure que le paramètre `onSelectionChange`.
+ *
+ * @method getSessionToken(): string|null
+ *   Retourne le sessionToken widget (JWT). Utilisez-le pour appeler les endpoints
+ *   `/api/widget/**` depuis votre back-end ou depuis la page parente.
+ *
+ * @method getHoldToken(): string|null
+ *   Retourne le holdToken de session. Géré automatiquement — rarement utile en direct.
+ *
+ * @method getEventId(): string|null
+ *   Retourne l'UUID de l'événement résolu (même si `event` a été passé en slug).
+ *
+ * ## Flux recommandé pour une réservation
+ *
+ *   1. L'utilisateur sélectionne des sièges → `onSelectionChange` reçoit la liste
+ *   2. Votre code appelle `POST /api/widget/events/{eventId}/hold` avec les seatKeys
+ *      et `Authorization: Widget {sessionToken}` → les sièges sont bloqués 10 min
+ *   3. L'utilisateur paie (Stripe, etc.)
+ *   4. Votre back-end appelle `POST /api/widget/events/{eventId}/book` avec les mêmes seatKeys
+ *   5. Les sièges passent en `booked` et sont retirés du plan en temps réel (Mercure)
+ *
+ * ## Mises à jour en temps réel (Mercure)
+ *
+ *   Le widget s'abonne automatiquement au hub Mercure de l'événement.
+ *   Quand un autre utilisateur bloque ou réserve un siège, le widget le met à jour
+ *   visuellement sans rechargement. Aucune configuration supplémentaire n'est requise.
  */
 
 (function (global) {

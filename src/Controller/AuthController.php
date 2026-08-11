@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Dto\UserResponse;
 use App\Entity\User;
 use App\Service\UserService;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +22,16 @@ class AuthController extends AbstractController
     }
 
     #[Route('/register', methods: ['POST'])]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Post(summary: 'Créer un compte back-office', security: [])]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['email', 'password'], properties: [
+        new OA\Property(property: 'email', type: 'string', format: 'email'),
+        new OA\Property(property: 'password', type: 'string', minLength: 8),
+        new OA\Property(property: 'firstName', type: 'string'),
+        new OA\Property(property: 'lastName', type: 'string'),
+    ]))]
+    #[OA\Response(response: 201, description: 'Compte créé')]
+    #[OA\Response(response: 400, description: 'Email déjà utilisé ou mot de passe trop court')]
     public function register(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
@@ -40,6 +51,16 @@ class AuthController extends AbstractController
     }
 
     #[Route('/login', methods: ['POST'])]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Post(summary: 'Connexion back-office — retourne un JWT', security: [])]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['email', 'password'], properties: [
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'admin@mitoera.com'),
+        new OA\Property(property: 'password', type: 'string', example: 'motdepasse'),
+    ]))]
+    #[OA\Response(response: 200, description: 'JWT retourné', content: new OA\JsonContent(properties: [
+        new OA\Property(property: 'token', type: 'string', description: 'JWT à passer dans Authorization: Bearer'),
+    ]))]
+    #[OA\Response(response: 401, description: 'Identifiants invalides')]
     public function login(): JsonResponse
     {
         return $this->json(['message' => 'Login endpoint']);
@@ -47,6 +68,10 @@ class AuthController extends AbstractController
 
     #[Route('/me', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED')]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Get(summary: 'Profil de l\'utilisateur connecté')]
+    #[OA\Response(response: 200, description: 'Profil utilisateur')]
+    #[OA\Response(response: 401, description: 'Non authentifié')]
     public function me(): JsonResponse
     {
         return $this->json($this->toResponse($this->getUser()));
