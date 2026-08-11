@@ -60,6 +60,22 @@ class ApiKeyService
         );
     }
 
+    public function validateRaw(string $keyId, string $rawSecret): ApiKey
+    {
+        $apiKey = $this->apiKeyRepository->findByKeyIdAndActiveTrue($keyId);
+
+        if (!$apiKey) {
+            throw new UnauthorizedException('Invalid API Key');
+        }
+
+        $hasher = $this->hasherFactory->getPasswordHasher(ApiKey::class);
+        if (!$hasher->verify($apiKey->getSecretHash(), $rawSecret)) {
+            throw new UnauthorizedException('Invalid API Secret');
+        }
+
+        return $apiKey;
+    }
+
     public function validate(string $keyId, string $rawSecret): ApiKey
     {
         $apiKey = $this->apiKeyRepository->findByKeyIdAndActiveTrue($keyId);

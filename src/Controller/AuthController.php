@@ -3,8 +3,12 @@
 namespace App\Controller;
 
 use App\Dto\UserResponse;
+use App\Entity\ApiKeyScope;
 use App\Entity\User;
+use App\Exception\UnauthorizedException;
+use App\Service\ApiKeyService;
 use App\Service\UserService;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,6 +22,8 @@ class AuthController extends AbstractController
 {
     public function __construct(
         private UserService $userService,
+        private ApiKeyService $apiKeyService,
+        private JWTTokenManagerInterface $jwtManager,
     ) {
     }
 
@@ -48,6 +54,69 @@ class AuthController extends AbstractController
         } catch (\InvalidArgumentException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+    }
+
+    #[Route('/embed-token', methods: ['POST'])]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Post(summary: 'Génère un JWT embed à partir d\'une clé secrète (sk_bo_...)')]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['keyId', 'secret'], properties: [
+        new OA\Property(property: 'keyId', type: 'string', example: 'sk_bo_xxx'),
+        new OA\Property(property: 'secret', type: 'string'),
+    ]))]
+    #[OA\Response(response: 200, description: 'JWT embed', content: new OA\JsonContent(properties: [
+        new OA\Property(property: 'token', type: 'string'),
+        new OA\Property(property: 'workspaceId', type: 'string'),
+    ]))]
+    #[OA\Response(response: 401, description: 'Clé invalide')]
+    #[OA\Response(response: 400, description: 'Scope incorrect (clé publique refusée)')]
+    public function embedToken(Request $request): JsonResponse
+    {
+        $data   = json_decode($request->getContent(), true) ?? [];
+        $keyId  = trim($data['keyId'] ?? '');
+        $secret = trim($data['secret'] ?? '');
+
+        if (!$keyId || !$secret) {
+            return $this->json(['error' => 'keyId et secret requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $apiKey = $this->apiKeyService->validateRaw($keyId, $secret);
+        } catch (UnauthorizedException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($apiKey->getScope() !== ApiKeyScope::BACKOFFICE) {
+            return $this->json(['error' => 'Une clé secrète (sk_bo_...) est requise'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $workspace = $apiKey->getWorkspace();
+        if (!$workspace) {
+            return $this->json(['error' => 'Workspace introuvable'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        // Prend le premier membre owner du workspace comme sujet du JWT
+        $owner = null;
+        foreach ($workspace->getMembers() as $member) {
+            if ($member->getRole() === 'owner') {
+                $owner = $member->getUser();
+                break;
+            }
+        }
+        $owner ??= $workspace->getMembers()->first()?->getUser();
+
+        if (!$owner) {
+            return $this->json(['error' => 'Aucun utilisateur associé au workspace'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $token = $this->jwtManager->createFromPayload($owner, [
+            'workspaceId' => (string) $workspace->getId(),
+            'embed'       => true,
+        ]);
+
+        return $this->json([
+            'token'       => $token,
+            'workspaceId' => (string) $workspace->getId(),
+        ]);
     }
 
     #[Route('/login', methods: ['POST'])]
