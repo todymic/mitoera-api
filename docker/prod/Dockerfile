@@ -51,7 +51,11 @@ RUN apk add --no-cache \
         curl \
         xml \
         mbstring \
-    && apk del --no-cache postgresql-dev libxml2-dev libzip-dev icu-dev oniguruma-dev curl-dev
+    && apk del --no-cache postgresql-dev libxml2-dev libzip-dev icu-dev oniguruma-dev curl-dev \
+    && apk add --no-cache --virtual .phpredis-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del --no-cache .phpredis-deps
 
 # Recommended php.ini settings for prod
 RUN { \
