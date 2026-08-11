@@ -38,6 +38,10 @@ class ApiKey
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $createdByKeycloakId = null;
 
+    #[ORM\ManyToOne(targetEntity: Workspace::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Workspace $workspace = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -130,5 +134,8 @@ class ApiKey
         $this->createdByKeycloakId = $createdByKeycloakId;
         return $this;
     }
+
+    public function getWorkspace(): ?Workspace { return $this->workspace; }
+    public function setWorkspace(?Workspace $workspace): self { $this->workspace = $workspace; return $this; }
 }
 

@@ -82,6 +82,10 @@ services:
             $appSandbox: '%env(string:APP_SANDBOX)%'
         tags: ['controller.service_arguments']
 
+    App\EventListener\JWTCreatedListener:
+        tags:
+            - { name: kernel.event_listener, event: lexik_jwt_authentication.on_jwt_created, method: onJWTCreated }
+
     App\Service\MercureTokenService:
         arguments:
             $mercureJwtSecret: '%env(string:MERCURE_JWT_SECRET)%'

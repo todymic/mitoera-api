@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Chart;
+use App\Entity\Workspace;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -24,6 +25,12 @@ class ChartRepository extends ServiceEntityRepository
     public function findBySlug(string $slug): ?Chart
     {
         return $this->findOneBy(['slug' => $slug]);
+    }
+
+    /** @return Chart[] */
+    public function findByWorkspace(Workspace $workspace): array
+    {
+        return $this->findBy(['workspace' => $workspace], ['createdAt' => 'DESC']);
     }
 }
 

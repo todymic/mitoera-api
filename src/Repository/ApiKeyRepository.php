@@ -3,7 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\ApiKey;
-use App\Entity\ApiKeyScope;
+use App\Entity\Workspace;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -36,6 +36,12 @@ class ApiKeyRepository extends ServiceEntityRepository
             'createdByKeycloakId' => $keycloakId,
             'active' => true,
         ]);
+    }
+
+    /** @return ApiKey[] */
+    public function findByWorkspace(Workspace $workspace): array
+    {
+        return $this->findBy(['workspace' => $workspace, 'active' => true], ['createdAt' => 'DESC']);
     }
 }
 

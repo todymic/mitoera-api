@@ -16,6 +16,7 @@ class UserService
         private PasswordResetTokenRepository $resetTokenRepository,
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
+        private WorkspaceService $workspaceService,
     ) {
     }
 
@@ -42,6 +43,10 @@ class UserService
 
         $this->em->persist($user);
         $this->em->flush();
+
+        // Créer un workspace par défaut pour ce nouvel utilisateur
+        $workspaceName = trim(($firstName ?? '') . ' ' . ($lastName ?? '')) ?: explode('@', $email)[0];
+        $this->workspaceService->createForUser($user, $workspaceName);
 
         return $user;
     }

@@ -22,6 +22,7 @@ class ApiKeyService
         private ApiKeyRepository $apiKeyRepository,
         private EntityManagerInterface $em,
         private SluggerInterface $slugger,
+        private WorkspaceContext $workspaceContext,
     ) {
         $this->hasherFactory = new PasswordHasherFactory([
             ApiKey::class => ['algorithm' => 'bcrypt'],
@@ -44,6 +45,7 @@ class ApiKeyService
         $apiKey->setName($request->name);
         $apiKey->setScope($scope);
         $apiKey->setActive(true);
+        $apiKey->setWorkspace($this->workspaceContext->getWorkspace());
 
         $this->em->persist($apiKey);
         $this->em->flush();
@@ -80,7 +82,10 @@ class ApiKeyService
 
     public function findAll(): array
     {
-        $keys = $this->apiKeyRepository->findAll();
+        $workspace = $this->workspaceContext->getWorkspace();
+        $keys = $workspace
+            ? $this->apiKeyRepository->findByWorkspace($workspace)
+            : $this->apiKeyRepository->findAll();
         return array_map(fn(ApiKey $key) => $this->toResponse($key), $keys);
     }
 

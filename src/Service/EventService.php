@@ -30,6 +30,7 @@ class EventService
         private EntityManagerInterface $em,
         private SeatPublisherPort $publisher,
         private AppSettingRepository $settingRepository,
+        private WorkspaceContext $workspaceContext,
         private string $mercurePublicUrl = '',
     ) {
     }
@@ -47,6 +48,7 @@ class EventService
         $event->setHoldDurationMinutes(
             (int) $this->settingRepository->get('default_hold_duration_minutes', '10')
         );
+        $event->setWorkspace($this->workspaceContext->getWorkspace());
 
         if ($request->chartId) {
             if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $request->chartId)) {
@@ -68,7 +70,10 @@ class EventService
 
     public function findAll(): array
     {
-        $events = $this->eventRepository->findAll();
+        $workspace = $this->workspaceContext->getWorkspace();
+        $events = $workspace
+            ? $this->eventRepository->findByWorkspace($workspace)
+            : $this->eventRepository->findAll();
         return array_map(fn(Event $event) => $this->toResponse($event), $events);
     }
 

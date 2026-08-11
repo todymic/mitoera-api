@@ -30,6 +30,10 @@ class Event
     #[ORM\JoinColumn(nullable: true)]
     private ?User $owner = null;
 
+    #[ORM\ManyToOne(targetEntity: Workspace::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Workspace $workspace = null;
+
     #[ORM\OneToMany(targetEntity: EventSeat::class, mappedBy: 'event', cascade: ['remove'])]
     private Collection $seats;
 
@@ -118,6 +122,9 @@ class Event
 
     public function getOwner(): ?User { return $this->owner; }
     public function setOwner(?User $owner): self { $this->owner = $owner; return $this; }
+
+    public function getWorkspace(): ?Workspace { return $this->workspace; }
+    public function setWorkspace(?Workspace $workspace): self { $this->workspace = $workspace; return $this; }
 
     public function getHoldDurationMinutes(): int { return $this->holdDurationMinutes; }
     public function setHoldDurationMinutes(int $minutes): self

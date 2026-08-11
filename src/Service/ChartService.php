@@ -20,6 +20,7 @@ class ChartService
         private readonly ChartRepository        $chartRepository,
         private readonly EventRepository        $eventRepository,
         private readonly EntityManagerInterface $em,
+        private readonly WorkspaceContext       $workspaceContext,
     ) {
     }
 
@@ -34,6 +35,7 @@ class ChartService
         $chart->setName($request->name);
         $chart->setSlug($request->slug);
         $chart->setObjectsJson([]);
+        $chart->setWorkspace($this->workspaceContext->getWorkspace());
 
         $this->em->persist($chart);
         $this->em->flush();
@@ -43,7 +45,10 @@ class ChartService
 
     public function findAll(): array
     {
-        $charts = $this->chartRepository->findAll();
+        $workspace = $this->workspaceContext->getWorkspace();
+        $charts = $workspace
+            ? $this->chartRepository->findByWorkspace($workspace)
+            : $this->chartRepository->findAll();
         return array_map(fn(Chart $chart) => $this->toResponse($chart), $charts);
     }
 

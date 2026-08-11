@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Chart;
 use App\Entity\Event;
+use App\Entity\Workspace;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -22,9 +23,20 @@ class EventRepository extends ServiceEntityRepository
         parent::__construct($registry, Event::class);
     }
 
+    /** @return Event[] */
+    public function findByWorkspace(Workspace $workspace): array
+    {
+        return $this->findBy(['workspace' => $workspace], ['createdAt' => 'DESC']);
+    }
+
     public function findByIdentifier(string $identifier): ?Event
     {
         return $this->findOneBy(['identifier' => $identifier]);
+    }
+
+    public function findByIdentifierAndWorkspace(string $identifier, Workspace $workspace): ?Event
+    {
+        return $this->findOneBy(['identifier' => $identifier, 'workspace' => $workspace]);
     }
 
     public function countByChart(Chart $chart): int

@@ -34,6 +34,10 @@ class Chart
     #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => false])]
     private bool $pendingChanges = false;
 
+    #[ORM\ManyToOne(targetEntity: Workspace::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Workspace $workspace = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $createdAt;
 
@@ -138,6 +142,9 @@ class Chart
         $this->publishedSnapshot = $snapshot;
         return $this;
     }
+
+    public function getWorkspace(): ?Workspace { return $this->workspace; }
+    public function setWorkspace(?Workspace $workspace): self { $this->workspace = $workspace; return $this; }
 
     public function getCreatedAt(): DateTimeImmutable
     {

@@ -82,7 +82,7 @@ nelmio_api_doc:
                     properties:
                         sessionToken:
                             type: string
-                            description: JWT widget (durée 1h) — à passer dans Authorization: Widget
+                            description: "JWT widget (durée 1h) — à passer dans Authorization: Widget"
                         holdToken:
                             type: string
                             format: uuid
