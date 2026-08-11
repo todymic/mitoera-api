@@ -59,6 +59,18 @@
       color: #d1d5db;
     }
     @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    #chart {
+      opacity: 0;
+      transform: scale(0.92);
+      transform-origin: center center;
+    }
+    #chart.chart-ready {
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity: 1;
+      transform: scale(1);
+    }
   </style>
 </head>
 <body>
@@ -197,6 +209,7 @@
           updateStatsBar();
         };
         renderer.render();
+        requestAnimationFrame(() => document.getElementById('chart').classList.add('chart-ready'));
 
         // Mercure — seat status updates + plan updates en temps réel
         if (mercureES) { mercureES.close(); mercureES = null; }
