@@ -106,6 +106,10 @@
   debug:
     msg: "{{ migrations.stdout }}"
 
+- name: Copier les fichiers statiques publics vers le volume Docker (servi par nginx)
+  shell: "cp -r {{ api_path }}/public/. /var/lib/docker/volumes/api_public_shared/_data/"
+  become: true
+
 - name: Lire le mot de passe sandbox depuis .env.sandbox
   shell: "grep '^POSTGRES_PASSWORD=' {{ api_path }}/.env.sandbox | cut -d= -f2"
   register: sandbox_db_password
