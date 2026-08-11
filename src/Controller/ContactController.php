@@ -7,8 +7,9 @@ namespace App\Controller;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Bridge\Twig\Mime\TemplatedEmail;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Attribute\Route;
 
 class ContactController extends AbstractController
@@ -18,18 +19,17 @@ class ContactController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
-        $token     = $data['recaptcha'] ?? '';
-        $name      = trim($data['name'] ?? '');
-        $email     = trim($data['email'] ?? '');
-        $subject   = trim($data['subject'] ?? 'other');
-        $message   = trim($data['message'] ?? '');
-        $secret    = $_ENV['RECAPTCHA_SECRET'] ?? '';
+        $token   = $data['recaptcha'] ?? '';
+        $name    = trim($data['name'] ?? '');
+        $email   = trim($data['email'] ?? '');
+        $subject = trim($data['subject'] ?? 'other');
+        $message = trim($data['message'] ?? '');
+        $secret  = $_ENV['RECAPTCHA_SECRET'] ?? '';
 
         if ($name === '' || $email === '' || $message === '') {
             return $this->json(['error' => 'Champs requis manquants.'], 400);
         }
 
-        // Vérification reCAPTCHA v3
         if ($secret !== '' && $token !== '') {
             $response = file_get_contents(
                 'https://www.google.com/recaptcha/api/siteverify?secret='
@@ -49,14 +49,24 @@ class ContactController extends AbstractController
         ];
         $subjectLabel = $subjects[$subject] ?? 'Contact';
 
-        $mail = (new Email())
+        $mail = new TemplatedEmail()
             ->from('noreply@mitoera.com')
             ->to('contact@mitoera.com')
             ->replyTo($email)
             ->subject("[Mitoera] $subjectLabel — $name")
-            ->text("Nom : $name\nEmail : $email\nSujet : $subjectLabel\n\n$message");
+            ->htmlTemplate('emails/contact.html.twig')
+            ->context([
+                'senderName'    => $name,
+                'senderEmail'   => $email,
+                'subjectLabel'  => $subjectLabel,
+                'messageBody'   => $message,
+            ]);
 
-        $mailer->send($mail);
+        try {
+            $mailer->send($mail);
+        } catch (TransportExceptionInterface) {
+            return $this->json(['error' => 'Erreur d\'envoi, veuillez réessayer.'], 500);
+        }
 
         return $this->json(['success' => true]);
     }

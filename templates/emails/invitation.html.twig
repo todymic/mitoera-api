@@ -1,0 +1,23 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Invitation à rejoindre {{ workspaceName }}{% endblock %}
+
+{% block content %}
+  <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">
+    Vous avez été invité
+  </h1>
+  <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+    {{ inviterName }} vous invite à rejoindre le workspace
+    <strong style="color:#111827;">{{ workspaceName }}</strong> sur Mitoera.
+  </p>
+
+  <a href="{{ invitationUrl }}"
+     style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
+            text-decoration:none;padding:12px 28px;border-radius:8px;margin-bottom:24px;">
+    Accepter l'invitation
+  </a>
+
+  <p style="margin:0 0 0;font-size:13px;color:#9ca3af;">
+    Ce lien expire dans 7 jours. Si vous n'attendiez pas cette invitation, ignorez cet email.
+  </p>
+{% endblock %}
