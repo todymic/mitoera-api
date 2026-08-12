@@ -6,6 +6,11 @@
     version: main
     accept_hostkey: true
     force: true
+    update: true
+  become: false
+
+- name: S'assurer que le repo UI est sur le dernier commit distant
+  shell: git -C "{{ ui_path }}" pull origin main
   become: false
 
 - name: Supprimer les images Docker orphelines avant build UI
@@ -13,7 +18,11 @@
   become: true
   ignore_errors: true
 
-- name: Builder et démarrer l'UI
+- name: Builder l'image UI sans cache
+  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache ui
+  become: true
+
+- name: Démarrer l'UI
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
@@ -21,6 +30,5 @@
     services:
       - ui
     state: present
-    build: always
     recreate: always
   become: true
