@@ -8,6 +8,11 @@
     force: true
   become: false
 
+- name: Supprimer les images Docker orphelines avant build UI
+  shell: docker image prune -f
+  become: true
+  ignore_errors: true
+
 - name: Builder et démarrer l'UI
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
@@ -17,4 +22,5 @@
       - ui
     state: present
     build: always
+    recreate: always
   become: true
