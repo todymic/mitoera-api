@@ -13,7 +13,7 @@ rsync -a --delete --exclude='uploads/images' public/ public_shared/ \
     || echo "WARNING: public_shared rsync reported errors (exit $?), continuing boot"
 
 if [ -f bin/console ]; then
-    php bin/console cache:clear --env=prod --no-debug --no-warmup
+    php bin/console cache:clear --env=prod --no-debug
     php bin/console cache:warmup --env=prod --no-debug
 fi
 
