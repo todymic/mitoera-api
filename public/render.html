@@ -121,6 +121,32 @@
     let categoryPrices = {};
     let mercureES     = null;
 
+    // ── auto-refresh du session token expiré ────────────────────────────────
+
+    async function refreshSession() {
+      const res = await fetch(`${API_BASE}${API_PREFIX}/public/events/${mitoerEventId}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicKeyId: key }),
+      });
+      if (!res.ok) throw new Error('Impossible de renouveler la session');
+      const data = await res.json();
+      sessionToken = data.sessionToken;
+      holdToken    = data.holdToken;
+      emit('sessionRefreshed', { sessionToken, holdToken });
+    }
+
+    async function fetchWidget(url, opts = {}) {
+      opts.headers = { ...(opts.headers || {}), Authorization: `Widget ${sessionToken}` };
+      let res = await fetch(url, opts);
+      if (res.status === 401) {
+        await refreshSession();
+        opts.headers.Authorization = `Widget ${sessionToken}`;
+        res = await fetch(url, opts);
+      }
+      return res;
+    }
+
     // ── postMessage helpers ──────────────────────────────────────────────────
 
     function emit(type, payload) {
@@ -202,9 +228,7 @@
         mitoerEventId  = sessionData.eventId || eventId;
 
         // Event data
-        const eventRes = await fetch(`${API_BASE}${API_PREFIX}/widget/events/${mitoerEventId}`, {
-          headers: { Authorization: `Widget ${sessionToken}` },
-        });
+        const eventRes = await fetchWidget(`${API_BASE}${API_PREFIX}/widget/events/${mitoerEventId}`);
         if (!eventRes.ok) throw new Error("Impossible de charger l'événement");
         const eventData = await eventRes.json();
 
@@ -240,9 +264,7 @@
         // Fetch subscriber JWT
         let mercureToken = null;
         try {
-          const tokenRes = await fetch(`${API_BASE}${API_PREFIX}/widget/mercure-token?eventId=${mitoerEventId}`, {
-            headers: { Authorization: `Widget ${sessionToken}` },
-          });
+          const tokenRes = await fetchWidget(`${API_BASE}${API_PREFIX}/widget/mercure-token?eventId=${mitoerEventId}`);
           if (tokenRes.ok) mercureToken = (await tokenRes.json()).token;
         } catch (_) {}
 
@@ -256,9 +278,8 @@
 
           // Mise à jour du plan (publication depuis le BO)
           if (msg.type === 'chartUpdated') {
-            fetch(`${API_BASE}${API_PREFIX}/widget/events/${mitoerEventId}`, {
-              headers: { Authorization: `Widget ${sessionToken}` },
-            }).then(r => r.ok ? r.json() : null).then(data => {
+            fetchWidget(`${API_BASE}${API_PREFIX}/widget/events/${mitoerEventId}`)
+            .then(r => r.ok ? r.json() : null).then(data => {
               if (!data || !renderer) return;
               renderer.reload({
                 chartObjects: data.publishedSnapshot || [],
