@@ -52,6 +52,7 @@
       - docker-compose.traefik.prod.yml
     state: present
     pull: always
+    remove_orphans: true
   become: true
 
 - name: Copier .env.sandbox sur le serveur
