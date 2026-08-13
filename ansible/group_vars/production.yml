@@ -1,8 +1,9 @@
 api_repo: git@github.com:todymic/mitoera-api.git
 ui_repo: git@github.com:todymic/mitoera-ui.git
+bo_repo: git@github.com:todymic/mitoera-bo.git
 admin_repo: git@github-admin:todymic/mitoera-admin.git
 
 api_path: /home/debian/mitoera/api
 ui_path: /home/debian/mitoera/ui
+bo_path: /home/debian/mitoera/bo
 admin_path: /home/debian/mitoera/admin
-

@@ -123,6 +123,26 @@ services:
       - "traefik.http.routers.mitoera-ui.tls.certresolver=letsencrypt"
       - "traefik.http.services.mitoera-ui.loadbalancer.server.port=80"
 
+  bo:
+    build:
+      context: /home/debian/mitoera/bo
+      dockerfile: Dockerfile
+    image: mitoera/bo:latest
+    container_name: mitoera-bo
+    restart: unless-stopped
+    networks:
+      - mitoera-network
+      - web
+    labels:
+      - "traefik.enable=true"
+      # ─── Prod (HTTPS) — /admin et routes widget ──────────────────────────
+      - "traefik.http.routers.mitoera-bo.rule=Host(`mitoera.com`) && (PathPrefix(`/admin`) || PathPrefix(`/render.html`) || PathPrefix(`/embed-editor.html`) || PathPrefix(`/.well-known/mercure`))"
+      - "traefik.http.routers.mitoera-bo.entrypoints=websecure"
+      - "traefik.http.routers.mitoera-bo.tls=true"
+      - "traefik.http.routers.mitoera-bo.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.mitoera-bo.priority=10"
+      - "traefik.http.services.mitoera-bo.loadbalancer.server.port=80"
+
   admin:
     build:
       context: /home/debian/mitoera/admin

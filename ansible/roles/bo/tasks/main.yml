@@ -1,0 +1,34 @@
+---
+- name: Cloner / mettre à jour le repo BO
+  git:
+    repo: "{{ bo_repo }}"
+    dest: "{{ bo_path }}"
+    version: main
+    accept_hostkey: true
+    force: true
+    update: true
+  become: false
+
+- name: S'assurer que le repo BO est sur le dernier commit distant
+  shell: git -C "{{ bo_path }}" pull origin main
+  become: false
+
+- name: Supprimer les images Docker orphelines avant build BO
+  shell: docker image prune -f
+  become: true
+  ignore_errors: true
+
+- name: Builder l'image BO sans cache
+  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache bo
+  become: true
+
+- name: Démarrer le BO
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    services:
+      - bo
+    state: present
+    recreate: always
+  become: true
