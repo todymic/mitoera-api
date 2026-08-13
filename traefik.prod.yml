@@ -31,8 +31,7 @@ certificatesResolvers:
     acme:
       email: gtody.rabekoto@gmail.com
       storage: /acme/acme.json
-      httpChallenge:
-        entryPoint: web
+      tlsChallenge: {}
 
 log:
   level: INFO
