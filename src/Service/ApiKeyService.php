@@ -138,16 +138,16 @@ class ApiKeyService
 
     private function generateKeyId(ApiKeyScope $scope): string
     {
-        $prefix = $scope->prefix();
         $random = bin2hex(random_bytes(4));
-        return "pk_{$prefix}_{$random}";
+        $prefix = $scope->prefix();
+        return $prefix ? "pk_{$prefix}_{$random}" : "pk_{$random}";
     }
 
     private function generateSecret(ApiKeyScope $scope): string
     {
-        $prefix = $scope->prefix();
         $random = bin2hex(random_bytes(16));
-        return "sk_{$prefix}_{$random}";
+        $prefix = $scope->prefix();
+        return $prefix ? "sk_{$prefix}_{$random}" : "sk_{$random}";
     }
 }
 

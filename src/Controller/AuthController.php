@@ -85,8 +85,8 @@ class AuthController extends AbstractController
             return $this->json(['error' => $e->getMessage()], Response::HTTP_UNAUTHORIZED);
         }
 
-        if (!in_array($apiKey->getScope(), [ApiKeyScope::BACKOFFICE, ApiKeyScope::EMBED], true)) {
-            return $this->json(['error' => 'Une clé backoffice ou embed est requise'], Response::HTTP_BAD_REQUEST);
+        if ($apiKey->getScope() !== ApiKeyScope::BACKOFFICE) {
+            return $this->json(['error' => 'Une clé secrète (backoffice) est requise'], Response::HTTP_BAD_REQUEST);
         }
 
         $workspace = $apiKey->getWorkspace();

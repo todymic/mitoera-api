@@ -56,9 +56,9 @@ security:
         - { path: ^/api/admin/sandbox, roles: ROLE_ADMIN }
         - { path: ^/api/admin, roles: ROLE_ADMIN }
         - { path: ^/api/api-keys, roles: ROLE_BACKOFFICE }
-        - { path: ^/api/categories, methods: [POST, PUT, DELETE], roles: [ROLE_BACKOFFICE, ROLE_EMBED] }
+        - { path: ^/api/categories, methods: [POST, PUT, DELETE], roles: ROLE_BACKOFFICE }
         - { path: ^/api/categories, roles: IS_AUTHENTICATED }
-        - { path: ^/api/charts, methods: [POST, PUT, DELETE], roles: [ROLE_BACKOFFICE, ROLE_EMBED] }
+        - { path: ^/api/charts, methods: [POST, PUT, DELETE], roles: ROLE_BACKOFFICE }
         - { path: ^/api/charts, roles: IS_AUTHENTICATED }
         - { path: ^/api/events/.*/hold, roles: IS_AUTHENTICATED }
         - { path: ^/api/events/.*/book, roles: IS_AUTHENTICATED }
