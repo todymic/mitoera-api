@@ -31,6 +31,38 @@ class WorkspaceController extends AbstractController
         private readonly MailerInterface $mailer,
     ) {}
 
+    #[Route('', methods: ['POST'])]
+    #[OA\Post(summary: 'Créer un nouveau workspace')]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['name'], properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Mon projet'),
+    ]))]
+    #[OA\Response(response: 201, description: 'Workspace créé, JWT switché dessus')]
+    public function create(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+        $name = trim($data['name'] ?? '');
+
+        if ($name === '') {
+            return $this->json(['error' => 'Le nom est requis'], 400);
+        }
+
+        /** @var User $user */
+        $user      = $this->getUser();
+        $workspace = $this->workspaceService->createForUser($user, $name);
+
+        $token = $this->jwtManager->createFromPayload($user, [
+            'workspaceId' => (string) $workspace->getId(),
+        ]);
+
+        return $this->json([
+            'id'        => (string) $workspace->getId(),
+            'name'      => $workspace->getName(),
+            'slug'      => $workspace->getSlug(),
+            'createdAt' => $workspace->getCreatedAt()->format(\DateTimeInterface::ATOM),
+            'token'     => $token,
+        ], 201);
+    }
+
     #[Route('', methods: ['GET'])]
     #[OA\Get(summary: 'Liste tous les workspaces de l\'utilisateur connecté')]
     #[OA\Response(response: 200, description: 'Liste des workspaces')]
