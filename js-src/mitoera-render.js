@@ -1536,7 +1536,7 @@
               const ow = cardBr.width  / this._zoom;
               const oh = cardBr.height / this._zoom;
               const pad = 20;
-              const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+              const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
               this._mobileStep = 1;
@@ -1545,13 +1545,13 @@
               this._animateZoom(z2, px2, py2, 350);
             } else {
               this._mobileStep = 2;
-              this._zoomToLevel(1.8, cx, cy);
+              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else if (step === 1) {
             // Étape 2 : zoom sur le siège
             this._hideTooltip();
             this._mobileStep = 2;
-            this._zoomToLevel(1.8, cx, cy);
+            this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           } else {
             // Étape 3 : sélection
             if (this._isMobile()) {
@@ -1592,7 +1592,7 @@
           const ow = br.width  / this._zoom;
           const oh = br.height / this._zoom;
           const pad = 32;
-          const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+          const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep = 1;
@@ -1608,7 +1608,7 @@
           const cy = (br.top  + br.height / 2) - vr.top;
           this._hideTooltip();
           this._mobileStep = 2;
-          this._zoomToLevel(1.8, cx, cy);
+          this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           return;
         }
       });
