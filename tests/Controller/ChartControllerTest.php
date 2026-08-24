@@ -2,6 +2,8 @@
 
 namespace App\Tests\Controller;
 
+use App\Entity\Chart;
+
 class ChartControllerTest extends AbstractApiTestCase
 {
     // ─── GET /api/charts ─────────────────────────────────────────────────────
@@ -133,5 +135,48 @@ class ChartControllerTest extends AbstractApiTestCase
 
         $this->jsonRequest('GET', "/api/charts/$id", headers: $auth);
         $this->assertResponseStatusCodeSame(404);
+    }
+
+    // ─── Legacy null-workspace charts appear in list ──────────────────────────
+
+    public function testLegacyNullWorkspaceChartAppearsInList(): void
+    {
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+
+        // Simulate a chart created before workspace support (workspace = null)
+        $chart = new Chart();
+        $chart->setName('Legacy Hall');
+        $chart->setSlug('legacy-hall');
+        // workspace intentionally left null
+        $this->em->persist($chart);
+        $this->em->flush();
+
+        $this->jsonRequest('GET', '/api/charts', headers: $this->authHeaders($user, $workspace));
+
+        $this->assertJsonStatus(200);
+        $names = array_column($this->responseData(), 'name');
+        $this->assertContains('Legacy Hall', $names);
+    }
+
+    public function testWorkspacedChartNotVisibleToOtherWorkspace(): void
+    {
+        $userA      = $this->createUser('a@test.com');
+        $workspaceA = $this->createWorkspaceForUser($userA, 'Workspace A');
+
+        $userB      = $this->createUser('b@test.com');
+        $workspaceB = $this->createWorkspaceForUser($userB, 'Workspace B');
+
+        // Create chart scoped to workspace A
+        $this->jsonRequest('POST', '/api/charts',
+            ['name' => 'A-only Hall', 'slug' => 'a-only'],
+            $this->authHeaders($userA, $workspaceA),
+        );
+        $this->assertResponseStatusCodeSame(201);
+
+        // Workspace B should not see workspace A's chart
+        $this->jsonRequest('GET', '/api/charts', headers: $this->authHeaders($userB, $workspaceB));
+        $names = array_column($this->responseData(), 'name');
+        $this->assertNotContains('A-only Hall', $names);
     }
 }

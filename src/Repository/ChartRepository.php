@@ -30,7 +30,13 @@ class ChartRepository extends ServiceEntityRepository
     /** @return Chart[] */
     public function findByWorkspace(Workspace $workspace): array
     {
-        return $this->findBy(['workspace' => $workspace], ['createdAt' => 'DESC']);
+        $scoped = $this->findBy(['workspace' => $workspace], ['createdAt' => 'DESC']);
+        $legacy = $this->findBy(['workspace' => null],      ['createdAt' => 'DESC']);
+
+        $all = array_merge($scoped, $legacy);
+        usort($all, fn(Chart $a, Chart $b) => $b->getCreatedAt() <=> $a->getCreatedAt());
+
+        return $all;
     }
 }
 
