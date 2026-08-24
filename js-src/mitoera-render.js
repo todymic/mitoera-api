@@ -1155,7 +1155,7 @@
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
-      if (this._zoom > 0.6 || this._isMobile()) return;
+      if (this._mobileStep !== 1) return;
       const color = this._catColor(catId), name = this._catName(catId);
       const cat   = this._catMap[catId];
       const price = cat?.price != null
@@ -1498,7 +1498,7 @@
 
       if (planStatus!=='deleted') {
         s.addEventListener('mouseenter', () => {
-          if (!this._isMobile() && this._zoom > 0.6 && planStatus !== 'disabled') {
+          if (!this._isMobile() && this._mobileStep >= 2 && planStatus !== 'disabled') {
             this._showTooltip(s, {...tipInfo, key, planStatus});
             if (this._selected.has(key)) {
               s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset';
@@ -1508,7 +1508,7 @@
           }
         });
         s.addEventListener('mouseleave', () => {
-          if (this._zoom > 0.6) this._hideTooltip();
+          if (this._mobileStep >= 2) this._hideTooltip();
           s.style.filter = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
@@ -1519,56 +1519,47 @@
           e.stopPropagation();
           this._onPointerUp(e);
           if (this._didDrag) return;
-          if (this._isMobile()) {
-            // Ignore tap si une animation est en cours
-            if (this._animFrame) return;
-            const vr = this._viewport.getBoundingClientRect();
-            const sr = s.getBoundingClientRect();
-            const cx = sr.left - vr.left + sr.width / 2;
-            const cy = sr.top  - vr.top  + sr.height / 2;
-            // Si déjà au zoom max (pinch/wheel), sauter directement au modal
-            if (this._mobileStep === 0 && this._zoom >= (this._maxWheelZoom || Infinity)) {
-              this._mobileStep = 0;
-              this._showMobileModal(s, {...tipInfo, key, planStatus});
-              return;
-            }
-            const step = this._mobileStep;
-            if (step === 0) {
-              // Étape 1 : zoom sur la section entière centrée
-              const card = s.closest('[data-section]');
-              if (card) {
-                const cardBr   = card.getBoundingClientRect();
-                const canvasBr = this._canvas.getBoundingClientRect();
-                const ox = (cardBr.left - canvasBr.left) / this._zoom;
-                const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
-                const ow = cardBr.width  / this._zoom;
-                const oh = cardBr.height / this._zoom;
-                const pad = 20;
-                const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
-                const px2 = -(ox + ow/2) * z2 + this._cw / 2;
-                const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-                this._mobileStep = 1;
-                const sectionName = card.dataset.section || this._catName(catId);
-                this._mobilePendingTooltip = { section: sectionName, catId, el: card };
-                this._animateZoom(z2, px2, py2, 350);
-              } else {
-                this._mobileStep = 2;
-                this._zoomToLevel(1.8, cx, cy);
-              }
-            } else if (step === 1) {
-              // Étape 2 : zoom sur le siège à 180%
-              this._hideTooltip();
+          if (this._animFrame) return;
+          const vr = this._viewport.getBoundingClientRect();
+          const sr = s.getBoundingClientRect();
+          const cx = sr.left - vr.left + sr.width / 2;
+          const cy = sr.top  - vr.top  + sr.height / 2;
+          const step = this._mobileStep;
+          if (step === 0) {
+            // Étape 1 : zoom sur la section entière
+            const card = s.closest('[data-section]');
+            if (card) {
+              const cardBr   = card.getBoundingClientRect();
+              const canvasBr = this._canvas.getBoundingClientRect();
+              const ox = (cardBr.left - canvasBr.left) / this._zoom;
+              const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
+              const ow = cardBr.width  / this._zoom;
+              const oh = cardBr.height / this._zoom;
+              const pad = 20;
+              const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+              const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+              const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+              this._mobileStep = 1;
+              const sectionName = card.dataset.section || this._catName(catId);
+              this._mobilePendingTooltip = { section: sectionName, catId, el: card };
+              this._animateZoom(z2, px2, py2, 350);
+            } else {
               this._mobileStep = 2;
               this._zoomToLevel(1.8, cx, cy);
-            } else {
-              // Étape 3 : sélection via modal
+            }
+          } else if (step === 1) {
+            // Étape 2 : zoom sur le siège
+            this._hideTooltip();
+            this._mobileStep = 2;
+            this._zoomToLevel(1.8, cx, cy);
+          } else {
+            // Étape 3 : sélection
+            if (this._isMobile()) {
               this._mobileStep = 0;
               this._showMobileModal(s, {...tipInfo, key, planStatus});
-            }
-          } else {
-            this._onSeatClick(key, planStatus, s);
-            if (this._zoom >= 1.49 && planStatus !== 'disabled') {
-              this._showTooltip(s, {...tipInfo, key, planStatus});
+            } else {
+              this._onSeatClick(key, planStatus, s);
+              if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
             }
           }
         });
@@ -1589,46 +1580,37 @@
       el.addEventListener('pointerup', (e) => {
         e.stopPropagation();
         this._onPointerUp();
-        // On mobile step 1, a pan-then-release on a section still selects it
-        if (this._didDrag && !(this._isMobile() && this._mobileStep === 1)) return;
-        if (this._isMobile()) {
-          if (this._animFrame) return;
-          if (this._mobileStep === 0) {
-            // Step 0 → 1 : zoom sur la section entière
-            const br = el.getBoundingClientRect();
-            const canvasBr = this._canvas.getBoundingClientRect();
-            const ox = (br.left - canvasBr.left) / this._zoom;
-            const oy = (br.top  - canvasBr.top)  / this._zoom;
-            const ow = br.width  / this._zoom;
-            const oh = br.height / this._zoom;
-            const pad = 32;
-            const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
-            const px2 = -(ox + ow/2) * z2 + this._cw / 2;
-            const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-            this._mobileStep = 1;
-            this._mobilePendingTooltip = { section: sectionLabel, catId, el };
-            this._animateZoom(z2, px2, py2, 350);
-            return;
-          }
-          if (this._mobileStep === 1) {
-            // Step 1 → 2 : zoom to seat level centered on the tapped section
-            const br = el.getBoundingClientRect();
-            const vr = this._viewport.getBoundingClientRect();
-            const cx = (br.left + br.width  / 2) - vr.left;
-            const cy = (br.top  + br.height / 2) - vr.top;
-            this._hideTooltip();
-            this._mobileStep = 2;
-            this._zoomToLevel(1.8, cx, cy);
-            return;
-          }
+        // Step 1 pan-then-release still counts as a section tap
+        if (this._didDrag && this._mobileStep !== 1) return;
+        if (this._animFrame) return;
+        if (this._mobileStep === 0) {
+          // Step 0 → 1 : zoom sur la section entière
+          const br = el.getBoundingClientRect();
+          const canvasBr = this._canvas.getBoundingClientRect();
+          const ox = (br.left - canvasBr.left) / this._zoom;
+          const oy = (br.top  - canvasBr.top)  / this._zoom;
+          const ow = br.width  / this._zoom;
+          const oh = br.height / this._zoom;
+          const pad = 32;
+          const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 4);
+          const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+          const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+          this._mobileStep = 1;
+          this._mobilePendingTooltip = { section: sectionLabel, catId, el };
+          this._animateZoom(z2, px2, py2, 350);
           return;
         }
-        // Desktop: compute canvas-local center and zoom to 150%
-        let ox = 0, oy = 0, cur = el;
-        while (cur && cur !== this._canvas) { ox += cur.offsetLeft||0; oy += cur.offsetTop||0; cur = cur.offsetParent; }
-        const vx = this._panX + (ox + el.offsetWidth/2)  * this._zoom;
-        const vy = this._panY + (oy + el.offsetHeight/2) * this._zoom;
-        this._zoomToLevel(1.5, vx, vy);
+        if (this._mobileStep === 1) {
+          // Step 1 → 2 : zoom to seat level
+          const br = el.getBoundingClientRect();
+          const vr = this._viewport.getBoundingClientRect();
+          const cx = (br.left + br.width  / 2) - vr.left;
+          const cy = (br.top  + br.height / 2) - vr.top;
+          this._hideTooltip();
+          this._mobileStep = 2;
+          this._zoomToLevel(1.8, cx, cy);
+          return;
+        }
       });
     }
 
@@ -1757,7 +1739,7 @@
       }
       card.appendChild(grid); wrapper.appendChild(card);
       wrapper.dataset.plancat = row.categoryId || '';
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); if (!this._isMobile()) this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
       wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
       this._addSectionClick(wrapper, row.section||this._catName(row.categoryId), row.categoryId);
       this._canvas.appendChild(wrapper);
@@ -1815,7 +1797,7 @@
       tzCenterBadge._wrapEl=wrapper;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tzSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tzSeatsLayer.style.filter=''; this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
       wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId), t.categoryId);
@@ -1855,7 +1837,7 @@
       tsCenterBadge._seatsEl=tsSeatsLayer;
       tsCenterBadge._wrapEl=wrapper;
 
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tsSeatsLayer.style.filter=''; if (!this._isMobile()) this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tsSeatsLayer.style.filter=''; this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
       wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
 
       for (let ri=0;ri<trows;ri++) {
