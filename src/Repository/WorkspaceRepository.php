@@ -19,8 +19,8 @@ class WorkspaceRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('w')
             ->join('w.members', 'm')
-            ->where('m.user = :user')
-            ->setParameter('user', $user)
+            ->where('m.user = :userId')
+            ->setParameter('userId', $user->getId(), 'uuid')
             ->orderBy('w.createdAt', 'ASC')
             ->getQuery()
             ->getResult();
@@ -30,8 +30,8 @@ class WorkspaceRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('w')
             ->join('w.members', 'm')
-            ->where('m.user = :user')
-            ->setParameter('user', $user)
+            ->where('m.user = :userId')
+            ->setParameter('userId', $user->getId(), 'uuid')
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();

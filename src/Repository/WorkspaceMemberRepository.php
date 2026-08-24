@@ -17,6 +17,23 @@ class WorkspaceMemberRepository extends ServiceEntityRepository
 
     public function findOneByWorkspaceAndUser(Workspace $workspace, User $user): ?WorkspaceMember
     {
-        return $this->findOneBy(['workspace' => $workspace, 'user' => $user]);
+        return $this->createQueryBuilder('m')
+            ->where('m.workspace = :wsId')
+            ->andWhere('m.user = :userId')
+            ->setParameter('wsId', $workspace->getId(), 'uuid')
+            ->setParameter('userId', $user->getId(), 'uuid')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** @return WorkspaceMember[] */
+    public function findByWorkspace(Workspace $workspace): array
+    {
+        return $this->createQueryBuilder('m')
+            ->where('m.workspace = :wsId')
+            ->setParameter('wsId', $workspace->getId(), 'uuid')
+            ->getQuery()
+            ->getResult();
     }
 }

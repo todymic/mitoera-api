@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Entity\WorkspaceInvitation;
+use App\Repository\WorkspaceMemberRepository;
 use App\Service\WorkspaceContext;
 use App\Service\WorkspaceService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +30,7 @@ class WorkspaceController extends AbstractController
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly EntityManagerInterface $em,
         private readonly MailerInterface $mailer,
+        private readonly WorkspaceMemberRepository $memberRepository,
     ) {}
 
     #[Route('', methods: ['POST'])]
@@ -203,7 +205,7 @@ class WorkspaceController extends AbstractController
             'name'     => $m->getUser()->getDisplayName(),
             'role'     => $m->getRole(),
             'joinedAt' => $m->getJoinedAt()->format(\DateTimeInterface::ATOM),
-        ], $workspace->getMembers()->toArray());
+        ], $this->memberRepository->findByWorkspace($workspace));
 
         return $this->json($members);
     }

@@ -23,3 +23,8 @@ symfony.local.yaml
 
 
 .env.prod
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###

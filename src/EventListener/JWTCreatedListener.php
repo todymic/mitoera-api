@@ -19,12 +19,18 @@ class JWTCreatedListener
             return;
         }
 
+        $payload = $event->getData();
+
+        // Don't override an explicitly set workspaceId (e.g. from workspace switch/create)
+        if (isset($payload['workspaceId'])) {
+            return;
+        }
+
         $workspace = $this->workspaceService->getForUser($user);
         if (!$workspace) {
             return;
         }
 
-        $payload = $event->getData();
         $payload['workspaceId'] = (string) $workspace->getId();
         $event->setData($payload);
     }

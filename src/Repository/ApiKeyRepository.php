@@ -41,7 +41,14 @@ class ApiKeyRepository extends ServiceEntityRepository
     /** @return ApiKey[] */
     public function findByWorkspace(Workspace $workspace): array
     {
-        return $this->findBy(['workspace' => $workspace, 'active' => true], ['createdAt' => 'DESC']);
+        return $this->createQueryBuilder('k')
+            ->join('k.workspace', 'w')
+            ->where('w.id = :wsId')
+            ->andWhere('k.active = true')
+            ->setParameter('wsId', $workspace->getId(), 'uuid')
+            ->orderBy('k.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }
 
