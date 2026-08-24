@@ -125,6 +125,7 @@
       this.workspaceKey     = options.workspaceKey;
       this.eventId          = options.event;
       this.sandbox          = options.sandbox === true;
+      this.showLegend       = options.showLegend !== false;
       this.onSeatSelected    = options.onSeatSelected    || null;
       this.onSeatDeselected  = options.onSeatDeselected  || null;
       this.onSelectionChange = options.onSelectionChange || null;
@@ -153,6 +154,7 @@
       url.searchParams.set('key',   this.workspaceKey);
       url.searchParams.set('event', this.eventId);
       if (this.onCheckout) url.searchParams.set('checkout', '1');
+      if (!this.showLegend) url.searchParams.set('legend', '0');
 
       const iframe = document.createElement('iframe');
       iframe.src = url.toString();

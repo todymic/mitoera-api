@@ -111,6 +111,7 @@
     const key        = params.get('key');
     const eventId    = params.get('event');
     const withCheckout = params.get('checkout') === '1';
+    const showLegend   = params.get('legend') !== '0';
     const API_BASE   = location.origin;
     const API_PREFIX = (window.__MITOERA_API_PREFIX__ || '/api');
 
@@ -244,6 +245,7 @@
           },
           onSeatSelected:   (seat) => { emit('seatSelected',   { seat }); },
           onSeatDeselected: (seat) => { emit('seatDeselected', { seat }); },
+          showLegend,
         });
 
         renderer._onSelectionChange = () => {

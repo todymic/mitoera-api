@@ -76,6 +76,7 @@
       this._onSel     = opts.onSeatSelected   || null;
       this._onDesel   = opts.onSeatDeselected || null;
       this._readOnly  = opts.readOnly || false;
+      this._showLegend = opts.showLegend !== false;
       this._selected  = new Set(opts.selectedSeats || []);
 
       this._catMap     = {};
@@ -909,6 +910,7 @@
     }
 
     _buildLegend(root) {
+      if (!this._showLegend) return;
       const cats = Object.values(this._catMap);
       if (!cats.length) return;
       const mobile = this._isMobile();
@@ -927,12 +929,15 @@
       this._legendPills = {};
 
       // Pills — 2-column grid on mobile, horizontal scroll on desktop
+      const rootH = root.getBoundingClientRect().height || 500;
+      const maxLegendH = Math.min(Math.round(rootH * 0.35), 160);
       const grid = css(el('div'), mobile ? {
         display:'grid', gridTemplateColumns:'1fr 1fr',
-        gap:'6px', padding:'10px 14px 8px', overflow:'visible',
+        gap:'4px', padding:'6px 10px 6px', overflowY:'auto', maxHeight: maxLegendH + 'px',
+        scrollbarWidth:'none',
       } : {
-        display:'flex', alignItems:'center', gap:'8px',
-        padding:'10px 14px', overflowX:'auto', scrollbarWidth:'none',
+        display:'flex', alignItems:'center', gap:'6px',
+        padding:'6px 10px', overflowX:'auto', scrollbarWidth:'none',
       });
 
       for (const cat of cats) {
@@ -941,21 +946,21 @@
           ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'AR')
           : null;
         const pill = css(el('div'), {
-          display:'inline-flex', alignItems:'center', gap:'8px',
-          padding:'6px 12px', borderRadius:'999px', flexShrink:'0',
+          display:'inline-flex', alignItems:'center', gap:'5px',
+          padding:'3px 8px', borderRadius:'999px', flexShrink:'0',
           background:'#fff', border:'2px solid #e5e7eb',
           boxShadow:'0 1px 3px rgba(0,0,0,0.06)',
           cursor:'pointer', userSelect:'none', transition:'all 0.18s ease',
         });
 
         const dot = css(el('span'), {
-          width:'10px', height:'10px', borderRadius:'50%',
+          width:'8px', height:'8px', borderRadius:'50%',
           background:color, flexShrink:'0', boxShadow:`0 0 0 2px ${color}33`,
         });
         dot.dataset.dot = '1';
 
         const lbl = css(el('span'), {
-          fontSize:'12px', fontWeight:'700', color:'#111827', whiteSpace:'nowrap',
+          fontSize:'10px', fontWeight:'700', color:'#111827', whiteSpace:'nowrap',
         });
         lbl.textContent = cat.name || '';
 
@@ -964,7 +969,7 @@
 
         if (price) {
           const p = css(el('span'), {
-            fontSize:'11px', fontWeight:'600', color:'#6b7280', whiteSpace:'nowrap',
+            fontSize:'9px', fontWeight:'600', color:'#6b7280', whiteSpace:'nowrap',
           });
           p.textContent = price;
           pill.appendChild(p);
@@ -979,13 +984,13 @@
 
       // Reserved pill
       const resPill = css(el('div'), {
-        display:'inline-flex', alignItems:'center', gap:'8px',
-        padding:'6px 12px', borderRadius:'999px', flexShrink:'0',
+        display:'inline-flex', alignItems:'center', gap:'5px',
+        padding:'3px 8px', borderRadius:'999px', flexShrink:'0',
         background:'#f9fafb', border:'1px solid #e5e7eb',
         transition:'opacity 0.18s',
       });
-      const resDot = css(el('span'), {width:'10px', height:'10px', borderRadius:'50%', background:'#9ca3af', flexShrink:'0'});
-      const resLbl = css(el('span'), {fontSize:'12px', fontWeight:'700', color:'#9ca3af', whiteSpace:'nowrap'});
+      const resDot = css(el('span'), {width:'8px', height:'8px', borderRadius:'50%', background:'#9ca3af', flexShrink:'0'});
+      const resLbl = css(el('span'), {fontSize:'10px', fontWeight:'700', color:'#9ca3af', whiteSpace:'nowrap'});
       resLbl.textContent = 'Réservé';
       resPill.appendChild(resDot); resPill.appendChild(resLbl);
       this._legendPills.__reserved = resPill;
