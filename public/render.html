@@ -264,7 +264,8 @@
         // Fetch subscriber JWT
         let mercureToken = null;
         try {
-          const tokenRes = await fetchWidget(`${API_BASE}${API_PREFIX}/widget/mercure-token?eventId=${mitoerEventId}`);
+          const chartSlugParam = eventData.chartSlug ? `&chartSlug=${encodeURIComponent(eventData.chartSlug)}` : '';
+          const tokenRes = await fetchWidget(`${API_BASE}${API_PREFIX}/widget/mercure-token?eventId=${mitoerEventId}${chartSlugParam}`);
           if (tokenRes.ok) mercureToken = (await tokenRes.json()).token;
         } catch (_) {}
 

@@ -36,7 +36,13 @@ class MercureTokenController extends AbstractController
             return $this->json(['error' => 'eventId required'], Response::HTTP_BAD_REQUEST);
         }
 
-        $token = $this->tokenService->buildSubscriberToken(["event/$eventId/seats"]);
+        $topics = ["event/$eventId/seats"];
+        $chartSlug = $request->query->get('chartSlug');
+        if ($chartSlug) {
+            $topics[] = "chart/$chartSlug";
+        }
+
+        $token = $this->tokenService->buildSubscriberToken($topics);
         return $this->json(['token' => $token]);
     }
 
