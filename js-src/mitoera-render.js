@@ -421,12 +421,6 @@
 
     _onWheel(e) {
       e.preventDefault();
-      if (this._zoom >= (this._maxWheelZoom || Infinity)) return;
-      const rect  = this._viewport.getBoundingClientRect();
-      const cx    = e.clientX - rect.left;
-      const cy    = e.clientY - rect.top;
-      const delta = e.deltaY > 0 ? 0.85 : 1 / 0.85;
-      this._zoomCenteredOn(cx, cy, delta);
     }
 
     _onPointerDown(e) {
@@ -1495,7 +1489,7 @@
         visibility:planStatus==='deleted' ? 'hidden' : 'visible',
         boxShadow: this._selected.has(key) ? this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset' : 'none',
       });
-      const displayLabel = (size>=14 && planStatus!=='deleted') ? labelText : '';
+      const displayLabel = '';
       s.dataset.sk     = key;
       s.dataset.cat    = catId;
       s.dataset.ps     = planStatus;
