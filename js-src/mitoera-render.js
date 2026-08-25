@@ -997,10 +997,7 @@
       grid.appendChild(resPill);
       bar.appendChild(grid);
 
-      // Desktop: most mice/trackpads only send vertical wheel deltas, so the
-      // horizontal overflow (overflowX:'auto' above) is invisible/undiscoverable
-      // without this — translate vertical wheel to horizontal scroll, and add a
-      // right-edge fade that only shows while there's more to scroll to.
+      // Desktop: chevrons + wheel-to-horizontal-scroll
       if (!mobile) {
         grid.addEventListener('wheel', (e) => {
           if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -1009,20 +1006,38 @@
           }
         }, { passive: false });
 
-        const fade = css(el('div'), {
-          position:'absolute', top:'0', right:'0', bottom:'0', width:'36px',
-          background:'linear-gradient(to right, rgba(17,24,39,0), rgba(17,24,39,0.10))',
-          pointerEvents:'none', transition:'opacity 0.15s ease',
+        const chevronStyle = (side) => ({
+          position:'absolute', top:'0', bottom:'0', [side]:'0', zIndex:'10',
+          width:'32px', display:'flex', alignItems:'center', justifyContent:'center',
+          background: side === 'left'
+            ? 'linear-gradient(to right, rgba(255,255,255,1) 55%, rgba(255,255,255,0))'
+            : 'linear-gradient(to left, rgba(255,255,255,1) 55%, rgba(255,255,255,0))',
+          border:'none', cursor:'pointer', pointerEvents:'auto', padding:'0',
+          opacity:'0', transition:'opacity 0.15s ease',
         });
-        bar.appendChild(fade);
 
-        const updateFade = () => {
+        const chevL = css(el('button'), chevronStyle('left'));
+        chevL.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+        const chevR = css(el('button'), chevronStyle('right'));
+        chevR.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+        chevL.addEventListener('click', () => { grid.scrollBy({ left: -120, behavior: 'smooth' }); });
+        chevR.addEventListener('click', () => { grid.scrollBy({ left:  120, behavior: 'smooth' }); });
+
+        bar.style.position = 'relative';
+        bar.appendChild(chevL);
+        bar.appendChild(chevR);
+
+        const updateChevrons = () => {
           const maxScroll = grid.scrollWidth - grid.clientWidth;
-          fade.style.opacity = maxScroll > 2 && grid.scrollLeft < maxScroll - 2 ? '1' : '0';
+          chevL.style.opacity = grid.scrollLeft > 2 ? '1' : '0';
+          chevL.style.pointerEvents = grid.scrollLeft > 2 ? 'auto' : 'none';
+          chevR.style.opacity = maxScroll > 2 && grid.scrollLeft < maxScroll - 2 ? '1' : '0';
+          chevR.style.pointerEvents = maxScroll > 2 && grid.scrollLeft < maxScroll - 2 ? 'auto' : 'none';
         };
-        grid.addEventListener('scroll', updateFade, { passive: true });
-        requestAnimationFrame(updateFade);
-        window.addEventListener('resize', updateFade);
+        grid.addEventListener('scroll', updateChevrons, { passive: true });
+        requestAnimationFrame(updateChevrons);
+        window.addEventListener('resize', updateChevrons);
       }
 
       this._legendShowAll = null;
