@@ -1363,17 +1363,6 @@
       circleOuter.appendChild(circle);
       this._lensWrap.appendChild(circleOuter);
 
-      // Label below
-      const lbl = css(el('div'), {
-        position:'absolute',
-        left:(cx-R)+'px', top:(cy+R+6)+'px',
-        width:D+'px', textAlign:'center',
-        fontSize:'12px', fontWeight:'700', color:catColor,
-        textShadow:'0 1px 3px rgba(255,255,255,0.9)',
-        pointerEvents:'none',
-      });
-      lbl.textContent = section;
-      this._lensWrap.appendChild(lbl);
     }
 
     _sectionCanvasBbox(section) {
