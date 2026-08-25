@@ -1024,7 +1024,6 @@
         chevL.addEventListener('click', () => { grid.scrollBy({ left: -120, behavior: 'smooth' }); });
         chevR.addEventListener('click', () => { grid.scrollBy({ left:  120, behavior: 'smooth' }); });
 
-        bar.style.position = 'relative';
         bar.appendChild(chevL);
         bar.appendChild(chevR);
 
