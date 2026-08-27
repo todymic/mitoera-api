@@ -43,6 +43,13 @@
  *   Exemple : `{ 'abc-123': { price: 15000, currency: 'MGA' } }`
  *   Peut être mis à jour après `render()` via `chart.setCategoryPrices(prices)`.
  *
+ * @param {boolean}  [options.showLegend=true]
+ *   Affiche ou masque la légende des catégories (coin supérieur du plan).
+ *
+ * @param {boolean}  [options.showResume=false]
+ *   Affiche un footer récapitulatif de la sélection en cours (nombre de
+ *   sièges par catégorie). Désactivé par défaut.
+ *
  * ## Callbacks
  *
  * @param {function} [options.onReady]
@@ -126,6 +133,7 @@
       this.eventId          = options.event;
       this.sandbox          = options.sandbox === true;
       this.showLegend       = options.showLegend !== false;
+      this.showResume       = options.showResume === true;
       this.onSeatSelected    = options.onSeatSelected    || null;
       this.onSeatDeselected  = options.onSeatDeselected  || null;
       this.onSelectionChange = options.onSelectionChange || null;
@@ -155,6 +163,7 @@
       url.searchParams.set('event', this.eventId);
       if (this.onCheckout) url.searchParams.set('checkout', '1');
       if (!this.showLegend) url.searchParams.set('legend', '0');
+      if (this.showResume)  url.searchParams.set('resume', '1');
 
       const iframe = document.createElement('iframe');
       iframe.src = url.toString();
