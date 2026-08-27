@@ -95,9 +95,17 @@
     recreate: auto
   become: true
 
-# Étape 2 — Rebuilder et recréer UNIQUEMENT les containers app/cron.
-# nginx reste up pendant tout le build → coupure réduite au seul restart de l'app.
-- name: Builder et redémarrer les containers app (prod + sandbox)
+# Étape 2a — Builder la nouvelle image SANS toucher les containers en cours.
+# Les anciens containers continuent de servir les requêtes pendant tout le build.
+- name: Builder l'image app (sans arrêter les containers)
+  shell: |
+    cd {{ api_path }}
+    docker compose -f docker-compose.prod.yml build app app-sandbox
+  become: true
+
+# Étape 2b — Recréer les containers avec la nouvelle image (déjà buildée).
+# La coupure est réduite au seul restart (~3-5 s) et non à la durée du build.
+- name: Redémarrer les containers app avec la nouvelle image
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
@@ -108,7 +116,6 @@
       - app-sandbox
       - cron-sandbox
     state: present
-    build: always
     pull: missing
     recreate: always
   become: true
