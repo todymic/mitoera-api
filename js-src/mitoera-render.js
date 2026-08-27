@@ -1561,8 +1561,17 @@
             this._mobileStep = 2;
             this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           } else {
-            // Étape 3 : sélection
-            if (this._isMobile()) {
+            // Étape 3 : sélection — sauf si on clique sur une autre section (cross-section jump)
+            const card = s.closest('[data-section]');
+            const currentSectionEl = this._mobilePendingTooltip && this._mobilePendingTooltip.el;
+            if (card && currentSectionEl && card !== currentSectionEl) {
+              // Autre section : zoom détail direct sans repasser par le zoom section
+              this._hideTooltip();
+              const sectionName = card.dataset.section || this._catName(catId);
+              this._mobilePendingTooltip = { section: sectionName, catId, el: card };
+              this._mobileStep = 2;
+              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
+            } else if (this._isMobile()) {
               this._mobileStep = 0;
               this._showMobileModal(s, {...tipInfo, key, planStatus});
             } else {
