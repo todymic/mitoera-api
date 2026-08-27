@@ -194,3 +194,13 @@
     container: mitoera-app-sandbox
     command: php bin/console cache:warmup --env=prod --no-debug
   become: true
+
+- name: Démarrer tous les services restants (worker, bo, ui, admin, cron…)
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    state: present
+    pull: missing
+    recreate: auto
+  become: true
