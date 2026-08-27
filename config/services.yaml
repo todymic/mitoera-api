@@ -83,11 +83,15 @@ services:
     # StripeService
     App\Service\StripeService:
         arguments:
-            $secretKey:       '%env(string:STRIPE_SECRET_KEY)%'
-            $webhookSecret:   '%env(string:STRIPE_WEBHOOK_SECRET)%'
-            $priceStarter:    '%env(string:STRIPE_PRICE_STARTER)%'
-            $pricePro:        '%env(string:STRIPE_PRICE_PRO)%'
-            $priceEnterprise: '%env(string:STRIPE_PRICE_ENTERPRISE)%'
+            $secretKey:     '%env(string:STRIPE_SECRET_KEY)%'
+            $webhookSecret: '%env(string:STRIPE_WEBHOOK_SECRET)%'
+            $priceMora:     '%env(string:STRIPE_PRICE_MORA)%'
+            $priceSoa:      '%env(string:STRIPE_PRICE_SOA)%'
+
+    # QuotaService
+    App\Service\QuotaService:
+        arguments:
+            $stripeSecretKey: '%env(string:STRIPE_SECRET_KEY)%'
 
 
 
