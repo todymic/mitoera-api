@@ -1598,8 +1598,11 @@
     _addSectionClick(el, sectionLabel, catId) {
       if (sectionLabel) el.dataset.section = sectionLabel;
       el.style.cursor = 'pointer';
-      // Stop pointerdown from reaching the viewport drag handler → no accidental drag on sections
+      // En mobile step 0, on laisse pointerdown se propager au viewport pour que
+      // le drag fonctionne quand l'utilisateur glisse en partant d'une section.
+      // En step ≥ 1 (section zoomée) on bloque pour éviter les drags accidentels.
       el.addEventListener('pointerdown', (e) => {
+        if (this._isMobile() && this._mobileStep === 0) return;
         e.stopPropagation();
         this._didDrag = false;
       });
