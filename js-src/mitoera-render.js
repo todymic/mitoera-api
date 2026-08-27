@@ -1633,7 +1633,12 @@
             this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           } else {
             if (this._isMobile()) {
-              this._mobileStep = 0;
+              // Step 2 → même siège ou autre siège : on reste zoomé, pas de dézoom.
+              // Si le siège est dans une autre section, on met à jour _currentSectionEl
+              // sans dézoomer (l'utilisateur est déjà en vue détail).
+              const card = s.closest('[data-section]');
+              if (card) this._currentSectionEl = card;
+              this._mobileStep = 2;
               this._showMobileModal(s, {...tipInfo, key, planStatus});
             } else {
               this._onSeatClick(key, planStatus, s);
