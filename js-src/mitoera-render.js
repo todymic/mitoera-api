@@ -131,8 +131,6 @@
       this._drawAll();
       this._fitToContainer();
       this._updateMinimap();
-      // Defer lens draw so getBoundingClientRect() returns real geometry
-      requestAnimationFrame(() => this._updateLens());
       return this;
     }
 
