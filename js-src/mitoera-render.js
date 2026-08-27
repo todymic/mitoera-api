@@ -1307,6 +1307,8 @@
         transition:'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
       });
       circleOuter.addEventListener('click', () => {
+        // Vider immédiatement les loupes pour libérer les pointer events
+        this._lensWrap.innerHTML = '';
         // Même comportement qu'un clic de siège au step 0 : zoom sur la section + step 1
         const card = [...this._canvas.querySelectorAll('[data-section]')]
           .find(e => e.dataset.section === section);
