@@ -5,7 +5,9 @@
     "main": "index.js",
     "scripts": {
         "build": "vite build && BUILD_TARGET=render vite build",
-        "dev": "vite build --watch"
+        "dev": "vite build --watch",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui"
     },
     "repository": {
         "type": "git",
@@ -15,5 +17,8 @@
     "dependencies": {
         "terser": "^5.49.2",
         "vite": "^8.2.1"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.62.1"
     }
 }

@@ -253,6 +253,7 @@
           showResume,
         });
 
+        window.__renderer__ = renderer; // exposed for e2e tests
         renderer._onSelectionChange = () => {
           const seats = renderer.getSelectedSeats();
           emit('selectionChange', { seats });
