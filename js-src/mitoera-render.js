@@ -76,7 +76,8 @@
       this._onSel     = opts.onSeatSelected   || null;
       this._onDesel   = opts.onSeatDeselected || null;
       this._readOnly  = opts.readOnly || false;
-      this._showLegend = opts.showLegend !== false;
+      this._showLegend  = opts.showLegend  !== false;
+      this._showResume  = opts.showResume  !== false;
       this._selected  = new Set(opts.selectedSeats || []);
 
       this._catMap     = {};
@@ -102,6 +103,7 @@
       this._ch        = 0;
 
       this._seatSectionMap = {}; // seatKey → section label
+      this._resumeBar = null;
       this._lensWrap  = null;
       this._secBadges = []; // center badges shown at low zoom
       this._minZoom   = 0.1;
@@ -204,6 +206,7 @@
       if (changed) {
         this._refreshColors();
         this._updateLens();
+        this._updateResume();
         if (this._onSelectionChange) this._onSelectionChange();
       }
     }
@@ -282,6 +285,7 @@
       this._buildLens(root);
       this._buildMobileModal(root);
       this._buildLegend(root);
+      this._buildResume(root);
 
       vp.addEventListener('wheel',       this._onWheel.bind(this), {passive:false});
       vp.addEventListener('pointerdown', this._onPointerDown.bind(this));
@@ -1072,6 +1076,71 @@
       });
     }
 
+    _buildResume(root) {
+      if (!this._showResume) return;
+      const bar = css(el('div'), {
+        position:'absolute', bottom:'0', left:'0', right:'0', zIndex:'25',
+        background:'rgba(255,255,255,0.95)',
+        backdropFilter:'blur(6px)',
+        borderTop:'1px solid rgba(0,0,0,0.06)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        gap:'8px', padding:'6px 12px',
+        fontSize:'13px', fontWeight:'500', color:'#374151',
+        pointerEvents:'none',
+      });
+      this._resumeBar = bar;
+      root.appendChild(bar);
+      this._updateResume();
+    }
+
+    _updateResume() {
+      if (!this._resumeBar) return;
+      const total = this._selected.size;
+      if (total === 0) {
+        this._resumeBar.style.display = 'none';
+        return;
+      }
+      this._resumeBar.style.display = 'flex';
+
+      // Group by category
+      const byCat = {};
+      for (const key of this._selected) {
+        const catId = this._seatCatMap[key];
+        byCat[catId] = (byCat[catId] || 0) + 1;
+      }
+
+      this._resumeBar.innerHTML = '';
+
+      // Total badge
+      const badge = css(el('span'), {
+        display:'inline-flex', alignItems:'center', gap:'4px',
+        fontWeight:'700', color:'#111827', fontSize:'14px',
+      });
+      badge.textContent = total + ' siège' + (total > 1 ? 's' : '');
+      this._resumeBar.appendChild(badge);
+
+      // Per-category pills
+      for (const [catId, count] of Object.entries(byCat)) {
+        const cat   = this._catMap[catId] || {};
+        const color = cat.color || '#6366f1';
+        const name  = cat.name  || catId || '';
+        const pill  = css(el('span'), {
+          display:'inline-flex', alignItems:'center', gap:'4px',
+          padding:'2px 8px', borderRadius:'999px',
+          background: color + '22',
+          border: '1px solid ' + color + '55',
+          color:'#374151', fontSize:'12px', flexShrink:'0',
+        });
+        const dot = css(el('span'), {
+          width:'7px', height:'7px', borderRadius:'50%',
+          background: color, flexShrink:'0',
+        });
+        pill.appendChild(dot);
+        pill.appendChild(document.createTextNode(count + ' ' + name));
+        this._resumeBar.appendChild(pill);
+      }
+    }
+
     _buildMobileModal(root) {
       // Backdrop
       const overlay = css(el('div'), {
@@ -1457,6 +1526,7 @@
       }
       this._refreshColors();
       this._updateLens();
+      this._updateResume();
       if (this._onSelectionChange) this._onSelectionChange();
       // Bounce animation via animate.css
       seatEl.classList.remove('animate__animated', 'animate__pulse');

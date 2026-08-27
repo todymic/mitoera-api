@@ -251,6 +251,67 @@ curl -X POST http://localhost:8000/api/events/{eventId}/hold \
 
 Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
 
+## Widget de plan de salle (`PlaceRender`)
+
+### Intégration
+
+```html
+<script src="https://mitoera.com/mitoera-render.js"></script>
+<div id="chart" style="width:100%;height:500px;"></div>
+<script>
+  const chart = new PlaceRender(document.getElementById('chart'), {
+    data:          { chartObjects: [...], categories: [...], seats: [...] },
+    showLegend:    true,   // affiche la légende des catégories (défaut: true)
+    showResume:    true,   // affiche le résumé des sièges sélectionnés (défaut: true)
+    readOnly:      false,
+    selectedSeats: [],
+    onSeatSelected:   (seat) => console.log('selected', seat),
+    onSeatDeselected: (seat) => console.log('deselected', seat),
+  });
+  chart.render();
+</script>
+```
+
+### Options
+
+| Option | Type | Défaut | Description |
+|--------|------|--------|-------------|
+| `data` | `object` | — | Données du plan : `chartObjects`, `categories`, `seats` |
+| `showLegend` | `boolean` | `true` | Affiche la barre de légende des catégories en haut du plan |
+| `showResume` | `boolean` | `true` | Affiche le footer récapitulatif du nombre de sièges sélectionnés par catégorie |
+| `readOnly` | `boolean` | `false` | Désactive la sélection des sièges |
+| `selectedSeats` | `string[]` | `[]` | Sièges pré-sélectionnés au chargement |
+| `onSeatSelected` | `function` | — | Callback appelé à chaque sélection de siège `({ seatKey, catId, catColor, catName })` |
+| `onSeatDeselected` | `function` | — | Callback appelé à chaque désélection de siège |
+
+### API publique
+
+| Méthode | Description |
+|---------|-------------|
+| `render()` | Monte et affiche le widget |
+| `selectSeats(keys: string[])` | Sélectionne des sièges par clé (programmatique) |
+| `getSelectedObjects()` | Retourne la liste des sièges sélectionnés |
+| `updateSeatStatuses(seats)` | Met à jour les statuts des sièges (booked, held…) |
+| `reload({ chartObjects, categories, seats })` | Recharge les données sans recréer le widget |
+| `destroy()` | Démonte le widget et libère les listeners |
+
+### `showResume`
+
+Quand activé, un footer apparaît en bas du plan dès qu'au moins un siège est sélectionné.  
+Il affiche le total global et un pill coloré par catégorie.
+
+```
+[ 3 sièges ]  ● 2 VIP  ● 1 GOLD
+```
+
+Masqué automatiquement quand la sélection est vide.
+
+### `showLegend`
+
+Barre en haut du plan listant toutes les catégories avec leur couleur et prix.  
+Un clic sur une catégorie filtre les sièges visibles.  
+Masquée si aucune catégorie n'est définie.
+
 ## Licence
 
 Propriété de Place - Tous droits réservés
