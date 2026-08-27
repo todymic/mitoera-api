@@ -131,6 +131,8 @@
       this._drawAll();
       this._fitToContainer();
       this._updateMinimap();
+      // Defer lens draw so getBoundingClientRect() returns real geometry
+      requestAnimationFrame(() => this._updateLens());
       return this;
     }
 
@@ -193,14 +195,12 @@
       for (const key of keys) {
         if (this._statusMap[key] === 'available' && !this._selected.has(key)) {
           this._selected.add(key);
-          const catId = this._seatCatMap[key];
-          const info  = { seatKey:key, catId, catColor:this._catColor(catId), catName:this._catName(catId) };
-          if (this._onSel) this._onSel(info);
           changed = true;
         }
       }
       if (changed) {
         this._refreshColors();
+        this._updateLens();
         if (this._onSelectionChange) this._onSelectionChange();
       }
     }
@@ -1581,17 +1581,7 @@
             this._mobileStep = 2;
             this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           } else {
-            // Étape 3 : sélection — sauf si on clique sur une autre section (cross-section jump)
-            const card = s.closest('[data-section]');
-            if (card && this._currentSectionEl && card !== this._currentSectionEl) {
-              // Autre section : zoom détail direct sans repasser par le zoom section
-              this._hideTooltip();
-              this._currentSectionEl = card;
-              const sectionName = card.dataset.section || this._catName(catId);
-              this._mobilePendingTooltip = { section: sectionName, catId, el: card };
-              this._mobileStep = 2;
-              this._zoomToLevel(3, cx, cy);
-            } else if (this._isMobile()) {
+            if (this._isMobile()) {
               this._mobileStep = 0;
               this._showMobileModal(s, {...tipInfo, key, planStatus});
             } else {
