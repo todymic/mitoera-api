@@ -262,7 +262,6 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
   const chart = new PlaceRender(document.getElementById('chart'), {
     data:          { chartObjects: [...], categories: [...], seats: [...] },
     showLegend:    true,   // affiche la légende des catégories (défaut: true)
-    showResume:    true,   // affiche le résumé des sièges sélectionnés (défaut: true)
     readOnly:      false,
     selectedSeats: [],
     onSeatSelected:   (seat) => console.log('selected', seat),
@@ -278,7 +277,6 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
 |--------|------|--------|-------------|
 | `data` | `object` | — | Données du plan : `chartObjects`, `categories`, `seats` |
 | `showLegend` | `boolean` | `true` | Affiche la barre de légende des catégories en haut du plan |
-| `showResume` | `boolean` | `true` | Affiche le footer récapitulatif du nombre de sièges sélectionnés par catégorie |
 | `readOnly` | `boolean` | `false` | Désactive la sélection des sièges |
 | `selectedSeats` | `string[]` | `[]` | Sièges pré-sélectionnés au chargement |
 | `onSeatSelected` | `function` | — | Callback appelé à chaque sélection de siège `({ seatKey, catId, catColor, catName })` |
@@ -294,17 +292,6 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
 | `updateSeatStatuses(seats)` | Met à jour les statuts des sièges (booked, held…) |
 | `reload({ chartObjects, categories, seats })` | Recharge les données sans recréer le widget |
 | `destroy()` | Démonte le widget et libère les listeners |
-
-### `showResume`
-
-Quand activé, un footer apparaît en bas du plan dès qu'au moins un siège est sélectionné.  
-Il affiche le total global et un pill coloré par catégorie.
-
-```
-[ 3 sièges ]  ● 2 VIP  ● 1 GOLD
-```
-
-Masqué automatiquement quand la sélection est vide.
 
 ### `showLegend`
 
