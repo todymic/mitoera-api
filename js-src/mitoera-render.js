@@ -1256,23 +1256,22 @@
     }
 
     _drawOneCircle(section, selectedKeys) {
-      const selSet = new Set(selectedKeys);
+      const selSet    = new Set(selectedKeys);
+      const rootRect  = this._root.getBoundingClientRect();
 
-      // Use canvas-space positions (offsetLeft/offsetTop) — no getBoundingClientRect,
-      // so alignment is correct even before the first paint / at page load.
+      // getBoundingClientRect() relative to root — fiable car _updateLens est appelé
+      // après la fin de l'animation (DOM entièrement rendue).
       const seatData = [];
       for (const e of this._canvas.querySelectorAll('[data-sk]')) {
         if (this._seatSectionMap[e.dataset.sk] !== section) continue;
-        let x = 0, y = 0, cur = e;
-        while (cur && cur !== this._canvas) { x += cur.offsetLeft || 0; y += cur.offsetTop || 0; cur = cur.offsetParent; }
+        const r = e.getBoundingClientRect();
         seatData.push({
           key: e.dataset.sk,
           cat: e.dataset.cat,
-          // viewport position: canvas transform applied
-          vx: x * this._zoom + this._panX + (e.offsetWidth  || 0) * this._zoom / 2,
-          vy: y * this._zoom + this._panY + (e.offsetHeight || 0) * this._zoom / 2,
-          w:  (e.offsetWidth  || 18) * this._zoom,
-          h:  (e.offsetHeight || 18) * this._zoom,
+          vx: r.left - rootRect.left + r.width  / 2,
+          vy: r.top  - rootRect.top  + r.height / 2,
+          w:  r.width,
+          h:  r.height,
           borderRadius: e.style.borderRadius || '50%',
         });
       }
