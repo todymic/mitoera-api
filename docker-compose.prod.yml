@@ -141,16 +141,12 @@ services:
       - "traefik.http.routers.mitoera-bo.tls=true"
       - "traefik.http.routers.mitoera-bo.tls.certresolver=letsencrypt"
       - "traefik.http.services.mitoera-bo.loadbalancer.server.port=80"
-      # ─── docs.mitoera.com → redirect vers bo.mitoera.com/docs ───────────
+      # ─── docs.mitoera.com → proxy vers le BO (même container) ─────────
       - "traefik.http.routers.mitoera-docs.rule=Host(`docs.mitoera.com`)"
       - "traefik.http.routers.mitoera-docs.entrypoints=websecure"
       - "traefik.http.routers.mitoera-docs.tls=true"
       - "traefik.http.routers.mitoera-docs.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.mitoera-docs.middlewares=docs-redirect"
       - "traefik.http.routers.mitoera-docs.service=mitoera-bo"
-      - "traefik.http.middlewares.docs-redirect.redirectregex.regex=^https://docs\\.mitoera\\.com(.*)"
-      - "traefik.http.middlewares.docs-redirect.redirectregex.replacement=https://bo.mitoera.com/docs"
-      - "traefik.http.middlewares.docs-redirect.redirectregex.permanent=true"
 
   admin:
     build:
