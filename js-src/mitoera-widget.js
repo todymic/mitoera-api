@@ -258,6 +258,12 @@
     getHoldToken()     { return this._holdToken; }
     getEventId()       { return this._mitoerEventId; }
 
+    /** Pre-select seats programmatically (e.g. restored from localStorage after login redirect). */
+    selectSeats(seatKeys) {
+      if (!this._iframe || !Array.isArray(seatKeys) || !seatKeys.length) return;
+      this._iframe.contentWindow.postMessage({ type: 'mitoera:selectSeats', seatKeys }, '*');
+    }
+
     /** Remove the iframe and clean up listeners. */
     destroy() {
       if (this._listener)   window.removeEventListener('message', this._listener);

@@ -188,6 +188,23 @@
       });
     }
 
+    selectSeats(keys) {
+      let changed = false;
+      for (const key of keys) {
+        if (this._statusMap[key] === 'available' && !this._selected.has(key)) {
+          this._selected.add(key);
+          const catId = this._seatCatMap[key];
+          const info  = { seatKey:key, catId, catColor:this._catColor(catId), catName:this._catName(catId) };
+          if (this._onSel) this._onSel(info);
+          changed = true;
+        }
+      }
+      if (changed) {
+        this._refreshColors();
+        if (this._onSelectionChange) this._onSelectionChange();
+      }
+    }
+
     reload({ chartObjects, categories, seats }) {
       // Preserve selections and seat status map
       const prevSelected = new Set(this._selected);
