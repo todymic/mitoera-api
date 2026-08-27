@@ -76,18 +76,34 @@
     - log
     - sessions
 
-- name: Builder et démarrer l'API (prod + sandbox)
+# Étape 1 — S'assurer que l'infra stable est up (nginx, db, redis, mercure).
+# Ces containers n'ont pas d'image à rebuilder : recreate: auto les laisse en place
+# s'ils tournent déjà → pas de coupure pendant le build de l'app.
+- name: Démarrer les services infra stables (nginx, db, redis, mercure)
+  community.docker.docker_compose_v2:
+    project_src: "{{ api_path }}"
+    files:
+      - docker-compose.prod.yml
+    services:
+      - nginx
+      - database
+      - database-sandbox
+      - redis
+      - mercure
+    state: present
+    pull: missing
+    recreate: auto
+  become: true
+
+# Étape 2 — Rebuilder et recréer UNIQUEMENT les containers app/cron.
+# nginx reste up pendant tout le build → coupure réduite au seul restart de l'app.
+- name: Builder et redémarrer les containers app (prod + sandbox)
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
       - docker-compose.prod.yml
     services:
       - app
-      - nginx
-      - database
-      - database-sandbox
-      - redis
-      - mercure
       - cron
       - app-sandbox
       - cron-sandbox
