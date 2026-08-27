@@ -138,8 +138,14 @@
       // Full replace when called with all seats (initial load); merge when called with a partial list (Mercure)
       for (const s of seats||[]) {
         this._statusMap[s.seatKey] = s.status;
-        // Deselect seats that are no longer available
+        // Deselect seats that are no longer available — except our own hold.
+        // A seat only becomes selectable while 'available', so a 'hold' on a
+        // seat we already have selected can only be the hold *we* just placed
+        // (the ticketevent-api call that follows selection). Without this,
+        // every selection immediately deselects itself the instant our own
+        // Mercure hold broadcast arrives back at us.
         if (s.status !== 'available' && this._selected.has(s.seatKey)) {
+          if (s.status === 'hold') continue;
           this._selected.delete(s.seatKey);
           const catId = this._seatCatMap[s.seatKey] || null;
           if (this._onDesel) this._onDesel({ seatKey: s.seatKey, catId, catColor: this._catColor(catId), catName: this._catName(catId) });
