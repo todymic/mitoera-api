@@ -77,6 +77,7 @@
       this._onDesel   = opts.onSeatDeselected || null;
       this._readOnly  = opts.readOnly || false;
       this._showLegend  = opts.showLegend  !== false;
+      this._showResume  = opts.showResume  !== false;
       this._selected  = new Set(opts.selectedSeats || []);
 
       this._catMap     = {};
@@ -102,6 +103,7 @@
       this._ch        = 0;
 
       this._seatSectionMap = {}; // seatKey → section label
+      this._resumeBar = null;
       this._lensWrap  = null;
       this._secBadges = []; // center badges shown at low zoom
       this._minZoom   = 0.1;
@@ -204,6 +206,7 @@
       if (changed) {
         this._refreshColors();
         this._updateLens();
+        this._updateResume();
         if (this._onSelectionChange) this._onSelectionChange();
       }
     }
@@ -282,6 +285,7 @@
       this._buildLens(root);
       this._buildMobileModal(root);
       this._buildLegend(root);
+      this._buildResume(root);
 
       vp.addEventListener('wheel',       this._onWheel.bind(this), {passive:false});
       vp.addEventListener('pointerdown', this._onPointerDown.bind(this));
@@ -1072,6 +1076,53 @@
       });
     }
 
+    _buildResume(root) {
+      if (!this._showResume) return;
+      const bar = css(el('div'), {
+        position:'absolute', bottom:'0', left:'0', right:'0', zIndex:'25',
+        background:'rgba(255,255,255,0.95)',
+        backdropFilter:'blur(6px)',
+        borderTop:'1px solid rgba(0,0,0,0.06)',
+        display:'none', alignItems:'center', flexWrap:'wrap',
+        gap:'6px', padding:'5px 10px',
+        pointerEvents:'none',
+      });
+      this._resumeBar = bar;
+      root.appendChild(bar);
+    }
+
+    _updateResume() {
+      if (!this._resumeBar) return;
+      const total = this._selected.size;
+      if (total === 0) {
+        this._resumeBar.style.display = 'none';
+        return;
+      }
+      this._resumeBar.style.display = 'flex';
+      this._resumeBar.innerHTML = '';
+
+      for (const cat of Object.values(this._catMap)) {
+        const count = [...this._selected].filter(k => this._seatCatMap[k] === cat.id).length;
+        if (count === 0) continue;
+        const color = cat.color || '#6366f1';
+
+        const pill = css(el('span'), {
+          display:'inline-flex', alignItems:'center', gap:'5px',
+          fontSize:'12px', fontWeight:'500', color:'#1f2937',
+          whiteSpace:'nowrap',
+        });
+        const dot = css(el('span'), {
+          width:'9px', height:'9px', borderRadius:'50%',
+          background: color, flexShrink:'0',
+        });
+        pill.appendChild(dot);
+        pill.appendChild(document.createTextNode(
+          (cat.name || cat.id) + ' — ' + count + ' siège' + (count > 1 ? 's' : '')
+        ));
+        this._resumeBar.appendChild(pill);
+      }
+    }
+
     _buildMobileModal(root) {
       // Backdrop
       const overlay = css(el('div'), {
@@ -1457,6 +1508,7 @@
       }
       this._refreshColors();
       this._updateLens();
+      this._updateResume();
       if (this._onSelectionChange) this._onSelectionChange();
       // Bounce animation via animate.css
       seatEl.classList.remove('animate__animated', 'animate__pulse');

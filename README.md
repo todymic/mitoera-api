@@ -262,6 +262,7 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
   const chart = new PlaceRender(document.getElementById('chart'), {
     data:          { chartObjects: [...], categories: [...], seats: [...] },
     showLegend:    true,   // affiche la légende des catégories (défaut: true)
+    showResume:    true,   // affiche le résumé des sièges sélectionnés en footer (défaut: true)
     readOnly:      false,
     selectedSeats: [],
     onSeatSelected:   (seat) => console.log('selected', seat),
@@ -277,6 +278,7 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
 |--------|------|--------|-------------|
 | `data` | `object` | — | Données du plan : `chartObjects`, `categories`, `seats` |
 | `showLegend` | `boolean` | `true` | Affiche la barre de légende des catégories en haut du plan |
+| `showResume` | `boolean` | `true` | Affiche un footer récapitulatif `● CATÉGORIE — N sièges` dès qu'une sélection existe |
 | `readOnly` | `boolean` | `false` | Désactive la sélection des sièges |
 | `selectedSeats` | `string[]` | `[]` | Sièges pré-sélectionnés au chargement |
 | `onSeatSelected` | `function` | — | Callback appelé à chaque sélection de siège `({ seatKey, catId, catColor, catName })` |
