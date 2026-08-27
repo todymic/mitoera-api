@@ -116,6 +116,13 @@
     const API_BASE   = location.origin;
     const API_PREFIX = (window.__MITOERA_API_PREFIX__ || '/api');
 
+    // The #stats-bar footer (pills like "GOLD — 1 siège") is a page-level
+    // element independent of PlaceRender's own internal showResume handling
+    // — without this, it always showed regardless of the showResume param.
+    if (!showResume) {
+      document.getElementById('stats-bar').style.display = 'none';
+    }
+
     let renderer      = null;
     let sessionToken  = null;
     let holdToken     = null;
