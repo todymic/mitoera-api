@@ -191,9 +191,14 @@
     selectSeats(keys) {
       let changed = false;
       for (const key of keys) {
-        if (this._statusMap[key] === 'available' && !this._selected.has(key)) {
+        if (this._bookingStatus(key) === 'available' && !this._selected.has(key)) {
           this._selected.add(key);
           changed = true;
+          // Fire onSeatSelected per seat, same as a manual click
+          if (this._onSel) {
+            const catId = this._seatCatMap[key];
+            this._onSel({ seatKey: key, catId, catColor: this._catColor(catId), catName: this._catName(catId) });
+          }
         }
       }
       if (changed) {
