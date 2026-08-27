@@ -295,6 +295,17 @@ Pour toute question ou bug, veuillez ouvrir une issue dans le dépôt.
 | `reload({ chartObjects, categories, seats })` | Recharge les données sans recréer le widget |
 | `destroy()` | Démonte le widget et libère les listeners |
 
+### `showResume`
+
+Footer en bas du plan affichant le nombre de sièges sélectionnés par catégorie.  
+Apparaît dès qu'au moins un siège est sélectionné, masqué sinon.
+
+```
+● GOLD — 1 siège   ● VIP — 2 sièges   ● VVIP — 2 sièges
+```
+
+Dans l'iframe (`render.html`), désactivé par défaut — activer avec le paramètre URL `?resume=1`.
+
 ### `showLegend`
 
 Barre en haut du plan listant toutes les catégories avec leur couleur et prix.  
