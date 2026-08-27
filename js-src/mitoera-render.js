@@ -1306,7 +1306,28 @@
         zIndex: String(this._lensWrap.children.length + 1),
         transition:'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
       });
-      circleOuter.addEventListener('click', () => this._zoomToLevel(1.5, cx, cy));
+      circleOuter.addEventListener('click', () => {
+        // Même comportement qu'un clic de siège au step 0 : zoom sur la section + step 1
+        const card = [...this._canvas.querySelectorAll('[data-section]')]
+          .find(e => e.dataset.section === section);
+        if (card) {
+          const cardBr   = card.getBoundingClientRect();
+          const canvasBr = this._canvas.getBoundingClientRect();
+          const ox = (cardBr.left - canvasBr.left) / this._zoom;
+          const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
+          const ow = cardBr.width  / this._zoom;
+          const oh = cardBr.height / this._zoom;
+          const pad = 20;
+          const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+          const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+          const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+          this._mobileStep       = 1;
+          this._currentSectionEl = card;
+          this._animateZoom(z2, px2, py2, 350);
+        } else {
+          this._zoomToLevel(1.5, cx, cy);
+        }
+      });
       circleOuter.addEventListener('mouseenter', () => {
         circleOuter.style.border=`4px solid ${catColor}`;
         circleOuter.style.boxShadow=`0 8px 36px rgba(0,0,0,0.22), 0 0 0 3px ${rgba(catColor,0.2)}`;
