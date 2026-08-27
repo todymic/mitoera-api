@@ -37,6 +37,15 @@
  *   Si `true`, le widget se connecte à l'environnement sandbox.
  *   Utiliser uniquement pour les tests — les réservations sandbox ne sont pas réelles.
  *
+ * @param {boolean}  [options.showLegend=true]
+ *   Affiche la barre de légende des catégories en haut du plan.
+ *   Passer `false` pour la masquer.
+ *
+ * @param {boolean}  [options.showResume=false]
+ *   Affiche un footer récapitulatif des sièges sélectionnés par catégorie.
+ *   Format : `● GOLD — 1 siège  ● VIP — 2 sièges`
+ *   Passer `true` pour l'activer (désactivé par défaut car le parent gère souvent son propre résumé).
+ *
  * @param {object}   [options.categoryPrices]
  *   Prix à afficher dans le tooltip de chaque siège, par catégorie.
  *   Clé : ID de catégorie (string). Valeur : `{ price: number, currency: string }`.
@@ -126,6 +135,7 @@
       this.eventId          = options.event;
       this.sandbox          = options.sandbox === true;
       this.showLegend       = options.showLegend !== false;
+      this.showResume       = options.showResume === true;
       this.onSeatSelected    = options.onSeatSelected    || null;
       this.onSeatDeselected  = options.onSeatDeselected  || null;
       this.onSelectionChange = options.onSelectionChange || null;
@@ -155,6 +165,7 @@
       url.searchParams.set('event', this.eventId);
       if (this.onCheckout) url.searchParams.set('checkout', '1');
       if (!this.showLegend) url.searchParams.set('legend', '0');
+      if (this.showResume)  url.searchParams.set('resume', '1');
 
       const iframe = document.createElement('iframe');
       iframe.src = url.toString();
