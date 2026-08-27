@@ -1256,22 +1256,25 @@
     }
 
     _drawOneCircle(section, selectedKeys) {
-      const selSet    = new Set(selectedKeys);
-      const rootRect  = this._root.getBoundingClientRect();
+      const selSet = new Set(selectedKeys);
 
-      // getBoundingClientRect() relative to root — fiable car _updateLens est appelé
-      // après la fin de l'animation (DOM entièrement rendue).
+      // Walk offsetLeft/offsetTop jusqu'au canvas : coordonnées layout, indépendantes
+      // des transforms CSS parents (notamment scale(0.92) au chargement de #chart).
+      // Converti en coords viewport via : vp = canvasLocal * zoom + pan.
       const seatData = [];
       for (const e of this._canvas.querySelectorAll('[data-sk]')) {
         if (this._seatSectionMap[e.dataset.sk] !== section) continue;
-        const r = e.getBoundingClientRect();
+        let x = 0, y = 0, cur = e;
+        while (cur && cur !== this._canvas) { x += cur.offsetLeft || 0; y += cur.offsetTop || 0; cur = cur.offsetParent; }
+        const w = (e.offsetWidth  || 18);
+        const h = (e.offsetHeight || 18);
         seatData.push({
           key: e.dataset.sk,
           cat: e.dataset.cat,
-          vx: r.left - rootRect.left + r.width  / 2,
-          vy: r.top  - rootRect.top  + r.height / 2,
-          w:  r.width,
-          h:  r.height,
+          vx: (x + w / 2) * this._zoom + this._panX,
+          vy: (y + h / 2) * this._zoom + this._panY,
+          w:  w * this._zoom,
+          h:  h * this._zoom,
           borderRadius: e.style.borderRadius || '50%',
         });
       }
