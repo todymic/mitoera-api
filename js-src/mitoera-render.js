@@ -1590,7 +1590,7 @@
               const sectionName = card.dataset.section || this._catName(catId);
               this._mobilePendingTooltip = { section: sectionName, catId, el: card };
               this._mobileStep = 2;
-              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
+              this._zoomToLevel(3, cx, cy);
             } else if (this._isMobile()) {
               this._mobileStep = 0;
               this._showMobileModal(s, {...tipInfo, key, planStatus});
