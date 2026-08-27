@@ -86,6 +86,7 @@ services:
       # Assets statiques copiés par l'entrypoint de l'app
       - public_shared:/app/public:ro
       - ./docker/prod/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/prod/nginx/maintenance.html:/usr/share/nginx/html/maintenance.html:ro
     depends_on:
       - app
     networks:
