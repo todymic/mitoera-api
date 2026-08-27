@@ -115,6 +115,7 @@
       this._pinchZoom  = null;
       this._mobileStep = 0; // 0=overview, 1=section zoomed, 2=seat zoomed
       this._mobilePendingTooltip = null;
+      this._currentSectionEl = null; // section element active au step 1+
       this._filterCatId = null; // active category filter
 
       this._boundMove = this._onPointerMove.bind(this);
@@ -297,6 +298,7 @@
       const py2 = -minY*scale + (this._ch - h*scale)/2;
       this._mobileStep = 0;
       this._mobilePendingTooltip = null;
+      this._currentSectionEl = null;
       this._hideTooltip();
       this._animateZoom(scale, px2, py2, dur || 380);
     }
@@ -1548,6 +1550,7 @@
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
               this._mobileStep = 1;
+              this._currentSectionEl = card;
               const sectionName = card.dataset.section || this._catName(catId);
               this._mobilePendingTooltip = { section: sectionName, catId, el: card };
               this._animateZoom(z2, px2, py2, 350);
@@ -1563,10 +1566,10 @@
           } else {
             // Étape 3 : sélection — sauf si on clique sur une autre section (cross-section jump)
             const card = s.closest('[data-section]');
-            const currentSectionEl = this._mobilePendingTooltip && this._mobilePendingTooltip.el;
-            if (card && currentSectionEl && card !== currentSectionEl) {
+            if (card && this._currentSectionEl && card !== this._currentSectionEl) {
               // Autre section : zoom détail direct sans repasser par le zoom section
               this._hideTooltip();
+              this._currentSectionEl = card;
               const sectionName = card.dataset.section || this._catName(catId);
               this._mobilePendingTooltip = { section: sectionName, catId, el: card };
               this._mobileStep = 2;
@@ -1613,6 +1616,7 @@
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep = 1;
+          this._currentSectionEl = el;
           this._mobilePendingTooltip = { section: sectionLabel, catId, el };
           this._animateZoom(z2, px2, py2, 350);
           return;
