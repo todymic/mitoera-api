@@ -1249,45 +1249,47 @@
     }
 
     _drawOneCircle(section, selectedKeys) {
-      const selSet   = new Set(selectedKeys);
-      const rootRect = this._root.getBoundingClientRect();
+      const selSet = new Set(selectedKeys);
 
-      // Collect all seats in this section with their exact viewport geometry
+      // Use canvas-space positions (offsetLeft/offsetTop) — no getBoundingClientRect,
+      // so alignment is correct even before the first paint / at page load.
       const seatData = [];
       for (const e of this._canvas.querySelectorAll('[data-sk]')) {
         if (this._seatSectionMap[e.dataset.sk] !== section) continue;
-        const r = e.getBoundingClientRect();
+        let x = 0, y = 0, cur = e;
+        while (cur && cur !== this._canvas) { x += cur.offsetLeft || 0; y += cur.offsetTop || 0; cur = cur.offsetParent; }
         seatData.push({
-          key:          e.dataset.sk,
-          cat:          e.dataset.cat,
-          x:            r.left + r.width/2  - rootRect.left,
-          y:            r.top  + r.height/2 - rootRect.top,
-          w:            r.width,
-          h:            r.height,
+          key: e.dataset.sk,
+          cat: e.dataset.cat,
+          // viewport position: canvas transform applied
+          vx: x * this._zoom + this._panX + (e.offsetWidth  || 0) * this._zoom / 2,
+          vy: y * this._zoom + this._panY + (e.offsetHeight || 0) * this._zoom / 2,
+          w:  (e.offsetWidth  || 18) * this._zoom,
+          h:  (e.offsetHeight || 18) * this._zoom,
           borderRadius: e.style.borderRadius || '50%',
         });
       }
       if (!seatData.length) return;
 
-      // Centroid of selected seats
       const selData = seatData.filter(s => selSet.has(s.key));
       if (!selData.length) return;
+
+      // Centroid of selected seats in viewport coords
       let cx = 0, cy = 0;
-      for (const s of selData) { cx += s.x; cy += s.y; }
+      for (const s of selData) { cx += s.vx; cy += s.vy; }
       cx /= selData.length; cy /= selData.length;
 
-      // Radius = covers all selected seats + padding
-      const seatR  = selData[0].w / 2 || 8;
-      let maxDist  = 0;
-      for (const s of selData) maxDist = Math.max(maxDist, Math.sqrt((s.x-cx)**2 + (s.y-cy)**2));
-      const minR = this._isMobile() ? 22 : 28;
-      const pad  = this._isMobile() ? 8  : 10;
-      const R = Math.max(minR, maxDist + seatR + pad);
+      // Radius covers all seats of the section + padding (so context is visible)
+      let maxDist = 0;
+      for (const s of seatData) maxDist = Math.max(maxDist, Math.sqrt((s.vx-cx)**2 + (s.vy-cy)**2));
+      const seatR = (selData[0].w / 2) || 8;
+      const pad   = this._isMobile() ? 10 : 14;
+      const R = Math.max(this._isMobile() ? 24 : 30, maxDist + seatR + pad);
       const D = R * 2;
 
       const catColor = this._catColor(this._seatCatMap[selectedKeys[0]]);
 
-      // Outer ring: border + shadow + events. No clip so shadow/border aren't cut.
+      // Outer ring — clickable, zooms to section
       const circleOuter = css(el('div'), {
         position:'absolute',
         left:(cx-R)+'px', top:(cy-R)+'px',
@@ -1299,86 +1301,50 @@
         zIndex: String(this._lensWrap.children.length + 1),
         transition:'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
       });
-      circleOuter.addEventListener('click', () => {
-        const rr = this._root.getBoundingClientRect();
-        const vr = this._viewport.getBoundingClientRect();
-        const vcx = cx - (vr.left - rr.left);
-        const vcy = cy - (vr.top  - rr.top);
-        this._zoomToLevel(1.5, vcx, vcy);
+      circleOuter.addEventListener('click', () => this._zoomToLevel(1.5, cx, cy));
+      circleOuter.addEventListener('mouseenter', () => {
+        circleOuter.style.border=`4px solid ${catColor}`;
+        circleOuter.style.boxShadow=`0 8px 36px rgba(0,0,0,0.22), 0 0 0 3px ${rgba(catColor,0.2)}`;
+        circleOuter.style.transform='scale(1.04)';
       });
-      circleOuter.addEventListener('mouseenter', () => { circleOuter.style.border=`4px solid ${catColor}`; circleOuter.style.boxShadow=`0 8px 36px rgba(0,0,0,0.22), 0 0 0 3px ${catColor}33`; circleOuter.style.transform='scale(1.04)'; });
-      circleOuter.addEventListener('mouseleave', () => { circleOuter.style.border=`3px solid ${catColor}`; circleOuter.style.boxShadow='0 4px 24px rgba(0,0,0,0.18)'; circleOuter.style.transform='scale(1)'; });
+      circleOuter.addEventListener('mouseleave', () => {
+        circleOuter.style.border=`3px solid ${catColor}`;
+        circleOuter.style.boxShadow='0 4px 24px rgba(0,0,0,0.18)';
+        circleOuter.style.transform='scale(1)';
+      });
 
-      // Inner content layer: reliably clips all content to circle shape.
-      // Slightly transparent (0.92) so overlapping circles show a subtle "behind glass" effect.
+      // Inner clip — white background, seats shown at actual scale
+      // Selected seats: category color. Others: light grey.
       const circle = css(el('div'), {
         position:'absolute', left:'0', top:'0',
         width:'100%', height:'100%',
         borderRadius:'50%', overflow:'hidden',
-        clipPath:'circle(50% at 50% 50%)',
         background:'rgba(255,255,255,0.92)',
         pointerEvents:'none',
       });
 
-      // Redraw section background/border so the boundary is visible in the lens
-      let sectionEl = null;
-      this._canvas.querySelectorAll('[data-section]').forEach(e => {
-        if (e.dataset.section === section) sectionEl = e;
-      });
-      if (sectionEl) {
-        // For seatRow the background is on the card child, not the wrapper itself
-        const bgTarget = sectionEl.style.background ? sectionEl :
-          [...sectionEl.querySelectorAll('*')].find(
-            e => e.style.background &&
-                 e.style.background !== '#fff' &&
-                 e.style.position   !== 'absolute' &&
-                 !e.dataset.sk && !e.dataset.lensHide
-          );
-        if (bgTarget) {
-          const br   = bgTarget.getBoundingClientRect();
-          const origW = br.width;
-          const origH = br.height;
-          // Visual center in lens coords
-          const lcx = br.left + br.width/2  - rootRect.left - (cx - R);
-          const lcy = br.top  + br.height/2 - rootRect.top  - (cy - R);
-          const bgDiv = css(el('div'), {
-            position:        'absolute',
-            left:            (lcx - origW/2) + 'px',
-            top:             (lcy - origH/2) + 'px',
-            width:           origW + 'px',
-            height:          origH + 'px',
-            background:      bgTarget.style.background  || '',
-            border:          bgTarget.style.border       || '',
-            borderRadius:    bgTarget.style.borderRadius || '',
-            transform:       bgTarget.style.transform    || '',
-            transformOrigin: '50% 50%',
-          });
-          circle.appendChild(bgDiv);
-        }
-      }
-
-      // Draw one plain div per seat — exact shape, no wrapper, no disc
       for (const s of seatData) {
         const isSel = selSet.has(s.key);
         const c     = this._catColor(s.cat);
         const dot   = css(el('div'), {
           position:     'absolute',
-          left:         (s.x - (cx - R) - s.w/2) + 'px',
-          top:          (s.y - (cy - R) - s.h/2) + 'px',
+          left:         (s.vx - cx + R - s.w/2) + 'px',
+          top:          (s.vy - cy + R - s.h/2) + 'px',
           width:        s.w + 'px',
           height:       s.h + 'px',
           borderRadius: s.borderRadius,
           background:   isSel ? c : '#d1d5db',
-          boxShadow:    isSel ? `0 0 0 2px rgba(255,255,255,0.85), 0 0 0 4px ${rgba(c,0.35)}` : 'none',
+          boxShadow:    isSel ? `0 0 0 2px rgba(255,255,255,0.8), 0 0 0 3.5px ${rgba(c,0.4)}` : 'none',
           zIndex:       isSel ? '2' : '1',
-          flexShrink:   '0',
         });
+        if (isSel) {
+          dot.innerHTML = `<svg viewBox="0 0 12 12" style="position:absolute;inset:0;margin:auto;width:55%;height:55%" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg>`;
+        }
         circle.appendChild(dot);
       }
 
       circleOuter.appendChild(circle);
       this._lensWrap.appendChild(circleOuter);
-
     }
 
     _sectionCanvasBbox(section) {
