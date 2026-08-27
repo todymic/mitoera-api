@@ -1284,9 +1284,9 @@
       for (const s of selData) { cx += s.vx; cy += s.vy; }
       cx /= selData.length; cy /= selData.length;
 
-      // Radius covers all seats of the section + padding (so context is visible)
+      // Radius sized on selected seats only — unselected context dots get clipped
       let maxDist = 0;
-      for (const s of seatData) maxDist = Math.max(maxDist, Math.sqrt((s.vx-cx)**2 + (s.vy-cy)**2));
+      for (const s of selData) maxDist = Math.max(maxDist, Math.sqrt((s.vx-cx)**2 + (s.vy-cy)**2));
       const seatR = (selData[0].w / 2) || 8;
       const pad   = this._isMobile() ? 10 : 14;
       const R = Math.max(this._isMobile() ? 24 : 30, maxDist + seatR + pad);
