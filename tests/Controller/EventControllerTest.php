@@ -182,6 +182,44 @@ class EventControllerTest extends AbstractApiTestCase
         $this->assertContains('Legacy Concert', $titles);
     }
 
+    // ─── hold duration endpoint removed ──────────────────────────────────────
+
+    public function testHoldDurationEndpointDoesNotExist(): void
+    {
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+        $auth      = $this->authHeaders($user, $workspace);
+
+        $this->jsonRequest('POST', '/api/events',
+            ['title' => 'Hold Test', 'identifier' => 'hold-test'],
+            $auth,
+        );
+        $id = $this->responseData()['id'];
+
+        $this->jsonRequest('PATCH', "/api/events/$id/hold-duration",
+            ['holdDurationMinutes' => 30],
+            $auth,
+        );
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testEventResponseDoesNotContainHoldDurationMinutes(): void
+    {
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+        $auth      = $this->authHeaders($user, $workspace);
+
+        $this->jsonRequest('POST', '/api/events',
+            ['title' => 'Minimal Event', 'identifier' => 'minimal-event'],
+            $auth,
+        );
+        $id = $this->responseData()['id'];
+
+        $this->jsonRequest('GET', "/api/events/$id", headers: $auth);
+        $data = $this->responseData();
+        $this->assertArrayNotHasKey('holdDurationMinutes', $data);
+    }
+
     public function testWorkspacedEventNotVisibleToOtherWorkspace(): void
     {
         $userA      = $this->createUser('a@test.com');
