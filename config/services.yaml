@@ -42,7 +42,6 @@ services:
     App\Service\BookingService:
         arguments:
             $redisUrl: '%env(string:REDIS_URL)%'
-            $holdDurationMinutes: '%env(int:SEATING_HOLD_DURATION_MINUTES)%'
 
     # HoldExpirationJob configuration
     App\Service\HoldExpirationJob:
