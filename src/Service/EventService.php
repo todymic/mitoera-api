@@ -14,7 +14,6 @@ use App\Exception\DuplicateKeyException;
 use App\Exception\ResourceNotFoundException;
 use App\Repository\CategoryRepository;
 use App\Repository\ChartRepository;
-use App\Repository\AppSettingRepository;
 use App\Repository\EventRepository;
 use App\Port\SeatPublisherPort;
 use App\Repository\EventSeatRepository;
@@ -29,7 +28,6 @@ class EventService
         private CategoryRepository $categoryRepository,
         private EntityManagerInterface $em,
         private SeatPublisherPort $publisher,
-        private AppSettingRepository $settingRepository,
         private WorkspaceContext $workspaceContext,
         private string $mercurePublicUrl = '',
     ) {
@@ -45,10 +43,7 @@ class EventService
         $event = new Event();
         $event->setTitle($request->title);
         $event->setIdentifier($request->identifier);
-        $event->setHoldDurationMinutes(
-            (int) $this->settingRepository->get('default_hold_duration_minutes', '10')
-        );
-        $event->setWorkspace($this->workspaceContext->getWorkspace());
+$event->setWorkspace($this->workspaceContext->getWorkspace());
 
         if ($request->chartId) {
             if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $request->chartId)) {
@@ -348,19 +343,7 @@ class EventService
         return $result ?: (string)($n + 1);
     }
 
-    public function updateHoldDuration(string $id, int $minutes): EventResponse
-    {
-        $event = $this->eventRepository->find($id);
-        if (!$event) {
-            throw new ResourceNotFoundException('Event not found');
-        }
-        $event->setHoldDurationMinutes($minutes);
-        $this->em->persist($event);
-        $this->em->flush();
-        return $this->toResponse($event);
-    }
-
-    private function toResponse(Event $event): EventResponse
+private function toResponse(Event $event): EventResponse
     {
         return new EventResponse(
             $event->getId(),
@@ -369,7 +352,6 @@ class EventService
             $event->getChart()?->getId(),
             $event->getChart()?->getName(),
             $event->getCreatedAt(),
-            $event->getHoldDurationMinutes(),
         );
     }
 
@@ -403,7 +385,6 @@ class EventService
             $categories,
             $this->mercurePublicUrl ?: null,
             $chart?->getSlug(),
-            $event->getHoldDurationMinutes(),
         );
     }
 }

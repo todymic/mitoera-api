@@ -4,11 +4,11 @@ namespace App\Service;
 
 use App\Dto\BookResponse;
 use App\Dto\HoldResponse;
-use App\Dto\SeatConflictDetail;
 use App\Entity\EventSeat;
 use App\Entity\SeatStatus;
 use App\Exception\ResourceNotFoundException;
 use App\Exception\SeatNotAvailableException;
+use App\Repository\AppSettingRepository;
 use App\Repository\EventRepository;
 use App\Repository\EventSeatRepository;
 use App\Repository\SeatUsageLogRepository;
@@ -20,7 +20,6 @@ use Symfony\Component\Uid\Uuid;
 class BookingService
 {
     private Client $redis;
-    private int $holdDurationMinutes;
 
     public function __construct(
         private EventSeatRepository $eventSeatRepository,
@@ -28,11 +27,10 @@ class BookingService
         private EntityManagerInterface $em,
         private SeatPublisherPort $publisher,
         private SeatUsageLogRepository $usageLogRepository,
+        private AppSettingRepository $settingRepository,
         string $redisUrl = 'tcp://127.0.0.1:6379',
-        int $holdDurationMinutes = 10,
     ) {
         $this->redis = new Client($redisUrl);
-        $this->holdDurationMinutes = $holdDurationMinutes;
     }
 
     public function publishRawSeatUpdates(Uuid $eventId, array $updates): void
@@ -78,7 +76,7 @@ class BookingService
             $seats[] = $seat;
         }
 
-        $holdDurationMinutes = $event->getHoldDurationMinutes();
+        $holdDurationMinutes = (int) $this->settingRepository->get('default_hold_duration_minutes', '10');
         $holdDurationSeconds = $holdDurationMinutes * 60;
         $expiresAt = new \DateTimeImmutable("+$holdDurationMinutes minutes");
 
