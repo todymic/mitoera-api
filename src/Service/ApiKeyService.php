@@ -23,6 +23,7 @@ class ApiKeyService
         private EntityManagerInterface $em,
         private SluggerInterface $slugger,
         private WorkspaceContext $workspaceContext,
+        private string $appEnv = 'prod',
     ) {
         $this->hasherFactory = new PasswordHasherFactory([
             ApiKey::class => ['algorithm' => 'bcrypt'],
@@ -136,18 +137,27 @@ class ApiKeyService
         );
     }
 
+    private function envToken(): string
+    {
+        return $this->appEnv === 'sandbox' ? 'test' : 'live';
+    }
+
     private function generateKeyId(ApiKeyScope $scope): string
     {
         $random = bin2hex(random_bytes(4));
-        $prefix = $scope->prefix();
-        return $prefix ? "pk_{$prefix}_{$random}" : "pk_{$random}";
+        return match ($scope) {
+            ApiKeyScope::PUBLIC     => 'pk_' . $this->envToken() . '_' . $random,
+            ApiKeyScope::BACKOFFICE => 'pk_' . $random,
+        };
     }
 
     private function generateSecret(ApiKeyScope $scope): string
     {
         $random = bin2hex(random_bytes(16));
-        $prefix = $scope->prefix();
-        return $prefix ? "sk_{$prefix}_{$random}" : "sk_{$random}";
+        return match ($scope) {
+            ApiKeyScope::PUBLIC     => 'sk_' . $this->envToken() . '_' . $random,
+            ApiKeyScope::BACKOFFICE => 'sk_' . $random,
+        };
     }
 }
 

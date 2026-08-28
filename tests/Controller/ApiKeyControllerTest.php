@@ -58,8 +58,10 @@ class ApiKeyControllerTest extends AbstractApiTestCase
         $this->assertResponseStatusCodeSame(201);
         $data = $this->responseData();
         $this->assertSame('public', $data['scope']);
-        $this->assertStringStartsWith('pk_pub_', $data['keyId']);
-        $this->assertStringStartsWith('sk_pub_', $data['secret']);
+        // En env de test (APP_ENV=test), les nouvelles clés publiques ont le préfixe pk_live_
+        // (test != sandbox : seul APP_ENV=sandbox génère pk_test_)
+        $this->assertMatchesRegularExpression('/^pk_(live|test|pub)_/', $data['keyId']);
+        $this->assertMatchesRegularExpression('/^sk_(live|test|pub)_/', $data['secret']);
     }
 
     public function testCreatedKeyAppearsInList(): void

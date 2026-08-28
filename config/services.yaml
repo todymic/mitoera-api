@@ -38,6 +38,16 @@ services:
         arguments:
             $mercurePublicUrl: '%env(default::MERCURE_PUBLIC_URL)%'
 
+    # ApiKeyService — env token pour les préfixes live/test
+    App\Service\ApiKeyService:
+        arguments:
+            $appEnv: '%env(string:APP_ENV)%'
+
+    App\Controller\ResolveKeyController:
+        arguments:
+            $appEnv: '%env(string:APP_ENV)%'
+        tags: ['controller.service_arguments']
+
     # BookingService configuration
     App\Service\BookingService:
         arguments:

@@ -13,11 +13,20 @@
  *   <script>
  *     const chart = new Mitoera.SeatingChart({
  *       divId:        'seating',
- *       workspaceKey: 'pk_pub_xxxx',   // clé publique — visible dans BO > Clés API
+ *       workspaceKey: 'pk_live_xxxx',  // clé publique — visible dans BO > Clés API
  *       event:        'mon-evenement', // slug ou UUID de l'événement
  *     });
  *     chart.render();
  *   </script>
+ *
+ * ## Environnements (prod vs sandbox)
+ *
+ *   L'environnement est **détecté automatiquement** depuis le préfixe de la clé :
+ *   - `pk_live_xxx` → production (appels vers /api/)
+ *   - `pk_test_xxx` → sandbox (appels vers /sandbox-api/)
+ *
+ *   Aucune option `sandbox` n'est nécessaire avec les nouvelles clés.
+ *   Les clés legacy `pk_pub_xxx` utilisent l'option `sandbox: true` pour la rétrocompatibilité.
  *
  * ## Options du constructeur
  *
@@ -26,16 +35,17 @@
  *   ID du `<div>` conteneur. Le widget remplit entièrement ce div.
  *
  * @param {string}   options.workspaceKey
- *   Clé publique de l'espace de travail (préfixe `pk_pub_`).
- *   Obtenue dans le back-office > Paramètres > Clés API.
+ *   Clé publique de l'espace de travail.
+ *   Préfixe `pk_live_` (prod) ou `pk_test_` (sandbox) — visible dans BO > Clés API.
+ *   L'environnement est déduit automatiquement du préfixe.
  *   Peut être exposée dans le code front-end.
  *
  * @param {string}   options.event
  *   Slug ou UUID de l'événement à afficher.
  *
- * @param {boolean}  [options.sandbox=false]
- *   Si `true`, le widget se connecte à l'environnement sandbox.
- *   Utiliser uniquement pour les tests — les réservations sandbox ne sont pas réelles.
+ * @param {boolean}  [options.sandbox]
+ *   Déprécié. Ignoré pour les clés `pk_live_` / `pk_test_`.
+ *   Maintenu uniquement pour la rétrocompatibilité avec les clés legacy `pk_pub_`.
  *
  * @param {boolean}  [options.showLegend=true]
  *   Affiche la barre de légende des catégories en haut du plan.
@@ -128,12 +138,26 @@
     return '';
   })();
 
+  // Détecte l'environnement depuis le préfixe de la clé.
+  // pk_live_xxx → 'live', pk_test_xxx → 'test', pk_pub_xxx → 'legacy'
+  function envFromKey(key) {
+    if (!key) return 'legacy';
+    if (key.startsWith('pk_live_')) return 'live';
+    if (key.startsWith('pk_test_')) return 'test';
+    return 'legacy';
+  }
+
   class SeatingChart {
     constructor(options) {
       this.divId            = options.divId;
       this.workspaceKey     = options.workspaceKey;
       this.eventId          = options.event;
-      this.sandbox          = options.sandbox === true;
+
+      const env = envFromKey(this.workspaceKey);
+      // Nouvelles clés : l'env est dans le préfixe, option sandbox ignorée.
+      // Clés legacy (pk_pub_) : on respecte options.sandbox pour la rétrocompat.
+      this.sandbox = env === 'test' || (env === 'legacy' && options.sandbox === true);
+
       this.showLegend       = options.showLegend !== false;
       this.showResume       = options.showResume === true;
       this.onSeatSelected    = options.onSeatSelected    || null;
