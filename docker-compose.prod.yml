@@ -179,7 +179,7 @@ services:
     env_file:
       - .env.sandbox
     environment:
-      APP_ENV: prod
+      APP_ENV: sandbox
       APP_SANDBOX: "true"
       REDIS_URL: redis://redis:6379
     expose:
