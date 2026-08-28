@@ -1247,6 +1247,7 @@
     }
 
     _showSectionTooltip(anchorEl, section, catId) {
+      if (this._isMobile()) return;
       if (this._mobileStep !== 1) return;
       const color = this._catColor(catId), name = this._catName(catId);
       const cat   = this._catMap[catId];
