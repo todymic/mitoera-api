@@ -149,17 +149,9 @@
   debug:
     msg: "{{ migrations.stdout }}"
 
-- name: Vider et rechauffer le cache Symfony prod (garantit la cohérence après deploy)
-  community.docker.docker_container_exec:
-    container: mitoera-app
-    command: php bin/console cache:clear --env=prod --no-debug
-  become: true
-
-- name: Warmup du cache Symfony prod
-  community.docker.docker_container_exec:
-    container: mitoera-app
-    command: php bin/console cache:warmup --env=prod --no-debug
-  become: true
+# cache:clear + cache:warmup sont déjà exécutés dans l'entrypoint du container,
+# AVANT que PHP-FPM ne démarre. Les relancer ici viderait le cache pendant que
+# PHP-FPM sert des requêtes → fenêtre d'échec systématique (ex: workspace switcher).
 
 - name: Copier les fichiers statiques publics vers le volume Docker (servi par nginx)
   shell: "cp -r {{ api_path }}/public/. /var/lib/docker/volumes/api_public_shared/_data/"
@@ -190,17 +182,7 @@
   debug:
     msg: "{{ migrations_sandbox.stdout }}"
 
-- name: Vider et rechauffer le cache Symfony sandbox
-  community.docker.docker_container_exec:
-    container: mitoera-app-sandbox
-    command: php bin/console cache:clear --env=prod --no-debug
-  become: true
-
-- name: Warmup du cache Symfony sandbox
-  community.docker.docker_container_exec:
-    container: mitoera-app-sandbox
-    command: php bin/console cache:warmup --env=prod --no-debug
-  become: true
+# Idem pour sandbox — cache géré par l'entrypoint avant PHP-FPM.
 
 - name: Démarrer tous les services restants (worker, bo, ui, admin, cron…)
   community.docker.docker_compose_v2:
