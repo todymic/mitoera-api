@@ -107,106 +107,83 @@
 # Séquence : démarrer le container blue (nouvelle image) → attendre healthy
 # → swap DNS Docker (rename) → nginx route vers new via cache DNS 10s
 # → stopper l'ancien. Aucune coupure visible côté client.
+- name: Copier le script blue-green sur le serveur
+  copy:
+    dest: /tmp/blue-green.sh
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+      OLD=$1
+      BLUE=$2
+      ENV_FILE=$3
+      VAR_MOUNT=$4
+      APP_SANDBOX_FLAG=$5
+      API_PATH={{ api_path }}
+
+      # Nettoyer un éventuel container blue orphelin
+      docker stop $BLUE >/dev/null 2>/dev/null || true
+      docker rm   $BLUE >/dev/null 2>/dev/null || true
+
+      EXTRA_ENV=""
+      if [ "$APP_SANDBOX_FLAG" = "true" ]; then
+        EXTRA_ENV="-e APP_SANDBOX=true"
+      fi
+
+      docker run -d --name $BLUE \
+        --network api_mitoera-network \
+        --restart unless-stopped \
+        -v ${VAR_MOUNT}:/app/var \
+        -v ${API_PATH}/config/jwt:/app/config/jwt:ro \
+        --env-file ${ENV_FILE} \
+        -e APP_ENV=prod \
+        -e REDIS_URL=redis://redis:6379 \
+        ${EXTRA_ENV} \
+        mitoera/app:latest
+
+      echo "Attente $BLUE healthy..."
+      for i in $(seq 1 30); do
+        docker exec $BLUE pgrep php-fpm >/dev/null 2>/dev/null && ALIVE=1 || ALIVE=0
+        [ "$ALIVE" = "1" ] && break
+        sleep 3
+      done
+      if [ "$ALIVE" != "1" ]; then
+        echo "ERREUR: $BLUE pas healthy - rollback"
+        docker stop $BLUE || true
+        docker rm   $BLUE || true
+        exit 1
+      fi
+
+      if docker inspect $OLD >/dev/null 2>/dev/null; then
+        docker rename $OLD ${OLD}-old
+        docker rename $BLUE $OLD
+        sleep 15
+        docker stop ${OLD}-old || true
+        docker rm   ${OLD}-old || true
+      else
+        docker rename $BLUE $OLD
+      fi
+      echo "Blue-green $OLD OK"
+  become: true
+
 - name: Blue-green deploy app (prod) — zero downtime
-  shell: |
-    set -e
-    cd {{ api_path }}
-
-    OLD=mitoera-app
-    BLUE=mitoera-app-blue
-
-    # Nettoyer un éventuel container blue orphelin d'un deploy précédent
-    docker stop $BLUE 2>/dev/null && docker rm $BLUE 2>/dev/null || true
-
-    # Lancer le container blue avec la nouvelle image
-    docker run -d --name $BLUE \
-      --network api_mitoera-network \
-      --restart unless-stopped \
-      -v {{ api_path }}/var:/app/var \
-      -v {{ api_path }}/config/jwt:/app/config/jwt:ro \
-      --env-file {{ api_path }}/.env.prod \
-      -e REDIS_URL=redis://redis:6379 \
-      --health-cmd "pgrep php-fpm > /dev/null || exit 1" \
-      --health-interval 5s \
-      --health-start-period 20s \
-      --health-retries 5 \
-      mitoera/app:latest
-
-    # Attendre que blue soit healthy
-    echo "Attente blue healthy..."
-    for i in $(seq 1 30); do
-      STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
-      [ "$STATUS" = "healthy" ] && break
-      sleep 3
-    done
-    STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
-    if [ "$STATUS" != "healthy" ]; then
-      echo "ERREUR: blue pas healthy — rollback"
-      docker stop $BLUE && docker rm $BLUE
-      exit 1
-    fi
-
-    # Si l'ancien container existe → swap atomique
-    # Sinon → renommer blue directement en OLD
-    if docker inspect $OLD > /dev/null 2>&1; then
-      docker rename $OLD ${OLD}-old
-      docker rename $BLUE $OLD
-      sleep 15
-      docker stop ${OLD}-old && docker rm ${OLD}-old
-    else
-      docker rename $BLUE $OLD
-    fi
-    echo "Blue-green prod OK"
+  shell: >
+    /tmp/blue-green.sh
+    mitoera-app
+    mitoera-app-blue
+    {{ api_path }}/.env.prod
+    {{ api_path }}/var
+    false
   become: true
 
 - name: Blue-green deploy app-sandbox — zero downtime
-  shell: |
-    set -e
-    cd {{ api_path }}
-
-    OLD=mitoera-app-sandbox
-    BLUE=mitoera-app-sandbox-blue
-
-    # Nettoyer un éventuel container blue orphelin d'un deploy précédent
-    docker stop $BLUE 2>/dev/null && docker rm $BLUE 2>/dev/null || true
-
-    docker run -d --name $BLUE \
-      --network api_mitoera-network \
-      --restart unless-stopped \
-      -v {{ api_path }}/var-sandbox:/app/var \
-      -v {{ api_path }}/config/jwt:/app/config/jwt:ro \
-      --env-file {{ api_path }}/.env.sandbox \
-      -e APP_ENV=prod \
-      -e APP_SANDBOX=true \
-      -e REDIS_URL=redis://redis:6379 \
-      --health-cmd "pgrep php-fpm > /dev/null || exit 1" \
-      --health-interval 5s \
-      --health-start-period 20s \
-      --health-retries 5 \
-      mitoera/app:latest
-
-    echo "Attente sandbox-blue healthy..."
-    for i in $(seq 1 30); do
-      STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
-      [ "$STATUS" = "healthy" ] && break
-      sleep 3
-    done
-    STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
-    if [ "$STATUS" != "healthy" ]; then
-      echo "ERREUR: sandbox-blue pas healthy — rollback"
-      docker stop $BLUE && docker rm $BLUE
-      exit 1
-    fi
-
-    if docker inspect $OLD > /dev/null 2>&1; then
-      docker rename $OLD ${OLD}-old
-      docker rename $BLUE $OLD
-      sleep 15
-      docker stop ${OLD}-old && docker rm ${OLD}-old
-    else
-      docker rename $BLUE $OLD
-    fi
-    echo "Blue-green sandbox OK"
+  shell: >
+    /tmp/blue-green.sh
+    mitoera-app-sandbox
+    mitoera-app-sandbox-blue
+    {{ api_path }}/.env.sandbox
+    {{ api_path }}/var-sandbox
+    true
   become: true
 
 # Cron : pas de trafic direct, recreate simple
