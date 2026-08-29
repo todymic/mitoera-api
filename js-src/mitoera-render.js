@@ -1591,20 +1591,12 @@
         s.addEventListener('mouseenter', () => {
           if (!this._isMobile() && this._mobileStep >= 2 && planStatus !== 'disabled') {
             this._showTooltip(s, {...tipInfo, key, planStatus});
-            s.style.transform = 'scale(1.25)';
-            s.style.zIndex = '10';
-            const col = this._catColor(catId);
-            if (this._selected.has(key)) {
-              s.style.boxShadow = col+' 0px 0px 0px 2px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset, 0 4px 10px rgba(0,0,0,0.2)';
-            } else {
-              s.style.boxShadow = col+' 0px 0px 0px 2px, 0 4px 10px rgba(0,0,0,0.18)';
-            }
+            s.style.filter = 'brightness(1.5) saturate(1.3)';
           }
         });
         s.addEventListener('mouseleave', () => {
           if (this._mobileStep >= 2) this._hideTooltip();
-          s.style.transform = '';
-          s.style.zIndex = '';
+          s.style.filter = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
           } else {
