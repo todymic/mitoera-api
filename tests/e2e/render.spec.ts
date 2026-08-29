@@ -153,47 +153,21 @@ test.describe('mobile', () => {
     await expect(page.locator('#chart')).toBeVisible();
   });
 
-  test('mobile: step 0 → 1 (section zoom) on section tap', async ({ page }) => {
+  test('mobile: step 0 → 2 (section zoom) on section tap', async ({ page }) => {
     await page.goto(SANDBOX_RENDER_URL);
     await waitForChart(page);
 
     const section = page.locator('[data-section],[data-plancat]').first();
     if (await section.count() === 0) test.skip();
 
-    const stepBefore = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
-    expect(stepBefore).toBe(0);
-
+    const zoomBefore = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
     await section.tap();
     await page.waitForTimeout(700);
 
     const stepAfter = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
-    expect(stepAfter).toBe(1);
-  });
-
-  test('mobile: step 1 → step 2 (zoom détail) on seat tap', async ({ page }) => {
-    await page.goto(SANDBOX_RENDER_URL);
-    await waitForChart(page);
-
-    const seat = page.locator('[data-sk][data-ps="enabled"]').first();
-    if (await seat.count() === 0) test.skip();
-
-    const zoomBefore = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
-
-    // step 0 → 1 (zoom section)
-    await page.locator('[data-section],[data-plancat]').first().tap();
-    await page.waitForTimeout(700);
-
-    const zoomStep1 = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
-    expect(zoomStep1).toBeGreaterThan(zoomBefore);
-
-    // step 1 → 2 (zoom détail, pas de modal)
-    await seat.tap();
-    await page.waitForTimeout(700);
-
-    const zoomStep2 = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
-    const step2 = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
-    expect(zoomStep2).toBeGreaterThan(zoomStep1);
-    expect(step2).toBe(2);
+    const zoomAfter = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
+    expect(stepAfter).toBe(2);
+    expect(zoomAfter).toBeGreaterThan(zoomBefore);
   });
 
   test('mobile: step 2 → tooltip de détail on seat tap', async ({ page }) => {
@@ -203,11 +177,8 @@ test.describe('mobile', () => {
     const seat = page.locator('[data-sk][data-ps="enabled"]').first();
     if (await seat.count() === 0) test.skip();
 
-    // step 0 → 1
+    // step 0 → 2 (section zoom)
     await page.locator('[data-section],[data-plancat]').first().tap();
-    await page.waitForTimeout(700);
-    // step 1 → 2
-    await seat.tap();
     await page.waitForTimeout(700);
     // step 2 → tooltip
     await seat.tap();

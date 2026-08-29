@@ -1614,31 +1614,8 @@
           const cx = sr.left - vr.left + sr.width / 2;
           const cy = sr.top  - vr.top  + sr.height / 2;
           const step = this._mobileStep;
-          const mob = this._isMobile();
-          if (step === 0 && mob) {
-            // Mobile step 0 → zoom section (step 1)
-            const card = s.closest('[data-section]') || s.closest('[data-plancat]');
-            if (card) {
-              const cardBr   = card.getBoundingClientRect();
-              const canvasBr = this._canvas.getBoundingClientRect();
-              const ox = (cardBr.left - canvasBr.left) / this._zoom;
-              const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
-              const ow = cardBr.width  / this._zoom;
-              const oh = cardBr.height / this._zoom;
-              const pad = 32;
-              const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
-              const px2 = -(ox + ow/2) * z2 + this._cw / 2;
-              const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-              this._mobileStep = 1;
-              this._currentSectionEl = card;
-              this._hideTooltip();
-              this._animateZoom(z2, px2, py2, 350);
-            } else {
-              this._mobileStep = 1;
-              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
-            }
-          } else if (step === 0 && !mob) {
-            // Desktop step 0 → zoom section direct (step 2)
+          if (step === 0) {
+            // step 0 → zoom section (step 2) — identique desktop et mobile
             const card = s.closest('[data-section]') || s.closest('[data-plancat]');
             if (card) {
               const cardBr   = card.getBoundingClientRect();
@@ -1660,36 +1637,12 @@
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else {
-            if (mob && step === 1) {
-              // Mobile step 1 → zoom vers step 2 (tooltip s'ouvre au step 2 seulement)
-              const card = s.closest('[data-section]') || s.closest('[data-plancat]');
-              if (card) {
-                const cardBr   = card.getBoundingClientRect();
-                const canvasBr = this._canvas.getBoundingClientRect();
-                const ox = (cardBr.left - canvasBr.left) / this._zoom;
-                const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
-                const ow = cardBr.width  / this._zoom;
-                const oh = cardBr.height / this._zoom;
-                const z2  = 10;
-                const px2 = -(ox + ow/2) * z2 + this._cw / 2;
-                const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-                this._mobileStep = 2;
-                this._currentSectionEl = card;
-                this._animateZoom(z2, px2, py2, 350);
-              } else {
-                this._mobileStep = 2;
-                this._zoomToLevel(Math.max(this._zoom * 2, 3), cx, cy);
-              }
-            } else if (mob) {
-              // Mobile step 2+ → tooltip de détail
-              const card = s.closest('[data-section]');
-              if (card) this._currentSectionEl = card;
-              this._mobileStep = 2;
-              if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
-            } else {
-              this._onSeatClick(key, planStatus, s);
-              if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
-            }
+            // step >= 2 → tooltip + sélection
+            const card = s.closest('[data-section]');
+            if (card) this._currentSectionEl = card;
+            this._mobileStep = 2;
+            this._onSeatClick(key, planStatus, s);
+            if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
           }
         });
       }
@@ -1726,9 +1679,7 @@
           const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-          // Mobile : step 0 → 1 (zoom section, puis 2e clic pour sièges)
-          // Desktop : step 0 → 2 directement
-          this._mobileStep = this._isMobile() ? 1 : 2;
+          this._mobileStep = 2;
           this._currentSectionEl = el;
           this._hideTooltip();
           this._animateZoom(z2, px2, py2, 380);
