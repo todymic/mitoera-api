@@ -1188,20 +1188,20 @@
         : name;
 
       this._mobileBody.innerHTML = `
-        <div style="display:flex;padding:12px 8px 10px;gap:0">
+        <div style="display:flex;padding:8px 8px 6px;gap:0">
           ${[['Section', section||'—'], ['Rangée', rowLabel||'—'], ['Siège', colLabel||label||'—']].map(([k,v],i) => `
-            <div style="${i===0?'flex:1.4':'flex:1'};display:flex;flex-direction:column;align-items:center;padding:0 8px;min-width:0">
-              <span style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
-              <span style="font-size:${i===0?'11':'18'}px;font-weight:800;color:#111827;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v}</span>
-            </div>`).join('<div style="width:1px;background:#f3f4f6;margin:4px 0;flex-shrink:0"></div>')}
+            <div style="${i===0?'flex:1.4':'flex:1'};display:flex;flex-direction:column;align-items:center;padding:0 6px;min-width:0">
+              <span style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
+              <span style="font-size:${i===0?'11':'15'}px;font-weight:800;color:#111827;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v}</span>
+            </div>`).join('<div style="width:1px;background:#f3f4f6;margin:3px 0;flex-shrink:0"></div>')}
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:${barBg};gap:12px">
-          <span style="font-size:17px;font-weight:700;color:#fff">${statusLabel}</span>
-          ${price && !unavail ? `<span style="font-size:18px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:${barBg};gap:10px">
+          <span style="font-size:14px;font-weight:700;color:#fff">${statusLabel}</span>
+          ${price && !unavail ? `<span style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
         </div>
-        <div style="display:flex;gap:10px;padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))">
-          <button id="_mm-close" style="flex:1;padding:12px;border:none;border-radius:12px;background:#f3f4f6;font-size:15px;font-weight:600;color:#374151;cursor:pointer">Fermer</button>
-          ${!unavail ? `<button id="_mm-select" style="flex:2;padding:12px;border:none;border-radius:12px;background:${sel ? '#6b7280' : color};font-size:15px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <div style="display:flex;gap:8px;padding:8px 14px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))">
+          <button id="_mm-close" style="flex:1;padding:8px;border:none;border-radius:10px;background:#f3f4f6;font-size:13px;font-weight:600;color:#374151;cursor:pointer">Fermer</button>
+          ${!unavail ? `<button id="_mm-select" style="flex:2;padding:8px;border:none;border-radius:10px;background:${sel ? '#6b7280' : color};font-size:13px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
             ${sel ? '✕ Désélectionner' : '✓ Sélectionner'}
           </button>` : ''}
         </div>`;
