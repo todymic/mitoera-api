@@ -1614,9 +1614,9 @@
           const cx = sr.left - vr.left + sr.width / 2;
           const cy = sr.top  - vr.top  + sr.height / 2;
           const step = this._mobileStep;
-          // Desktop step 0 ou mobile step 1 → zoom section + passer en step 2
-          const needsSectionZoom = (step === 0 && !this._isMobile()) || (step === 1 && this._isMobile());
-          if (needsSectionZoom) {
+          const mob = this._isMobile();
+          if (step === 0 && mob) {
+            // Mobile step 0 → zoom section (step 1)
             const card = s.closest('[data-section]') || s.closest('[data-plancat]');
             if (card) {
               const cardBr   = card.getBoundingClientRect();
@@ -1629,16 +1629,16 @@
               const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-              this._mobileStep = 2;
+              this._mobileStep = 1;
               this._currentSectionEl = card;
               this._hideTooltip();
               this._animateZoom(z2, px2, py2, 350);
             } else {
-              this._mobileStep = 2;
+              this._mobileStep = 1;
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
-          } else if (step === 0 && this._isMobile()) {
-            // Mobile step 0 : clic sur siège → zoom section (step 1), comme _addSectionClick
+          } else if (step === 0 && !mob) {
+            // Desktop step 0 → zoom section direct (step 2)
             const card = s.closest('[data-section]') || s.closest('[data-plancat]');
             if (card) {
               const cardBr   = card.getBoundingClientRect();
@@ -1651,16 +1651,17 @@
               const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-              this._mobileStep = 1;
+              this._mobileStep = 2;
               this._currentSectionEl = card;
               this._hideTooltip();
               this._animateZoom(z2, px2, py2, 350);
             } else {
-              this._mobileStep = 1;
+              this._mobileStep = 2;
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else {
-            if (this._isMobile()) {
+            // Step 1 mobile (ou step >= 2) → ouvrir modal/tooltip
+            if (mob) {
               // Step 2 → même siège ou autre siège : on reste zoomé, pas de dézoom.
               // Si le siège est dans une autre section, on met à jour _currentSectionEl
               // sans dézoomer (l'utilisateur est déjà en vue détail).
