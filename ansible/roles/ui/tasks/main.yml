@@ -50,9 +50,11 @@
       ")
         eval "docker run -d --name $BLUE --restart unless-stopped $DOCKER_ARGS $IMAGE"
       else
-        docker run -d --name $BLUE --restart unless-stopped \
-          --network api_mitoera-network --network web \
-          $IMAGE
+        COMPOSE_SERVICE=$4
+        API_PATH={{ api_path }}
+        docker compose -f ${API_PATH}/docker-compose.prod.yml up -d $COMPOSE_SERVICE
+        echo "Premier deploy $OLD via compose OK"
+        exit 0
       fi
 
       ALIVE=0
@@ -77,5 +79,5 @@
   become: true
 
 - name: Blue-green UI — zero downtime
-  shell: /tmp/blue-green-web.sh mitoera-ui mitoera-ui-blue mitoera/ui:latest
+  shell: /tmp/blue-green-web.sh mitoera-ui mitoera-ui-blue mitoera/ui:latest ui
   become: true
