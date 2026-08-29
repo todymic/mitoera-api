@@ -958,7 +958,7 @@
       document.head.appendChild(style);
 
       const bar = css(el('div'), {
-        position:'absolute', top:'0', left:'0', right:'0', zIndex:'25',
+        position:'absolute', top:'0', left:'0', right:'0', zIndex:'120',
         background:'rgba(255,255,255,0.95)',
         backdropFilter:'blur(6px)',
         borderBottom:'1px solid rgba(0,0,0,0.06)',
