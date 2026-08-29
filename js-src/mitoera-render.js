@@ -349,7 +349,7 @@
         const visible = show && !hovering;
         b.style.display = visible ? '' : 'none';
         if (show) b.style.transform = `translate(-50%,-50%) scale(${scale})`;
-        if (b._seatsEl) b._seatsEl.style.filter = visible ? 'blur(1.5px)' : '';
+        if (b._seatsEl) b._seatsEl.style.filter = '';
       }
     }
 
@@ -862,24 +862,35 @@
         barRight = price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
       }
 
+      const checkSvg = `<svg viewBox="0 0 14 14" width="13" height="13" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7L5.5 10.5L12 4"/></svg>`;
+      let bannerContent;
+      if (isUnavailable) {
+        bannerContent = `<span style="font-size:12px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
+      } else if (sel) {
+        bannerContent = `${checkSvg}<span style="font-size:12px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+      } else {
+        bannerContent = `<span style="font-size:12px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+      }
+
       this._tooltip.innerHTML = `
-        <div style="display:flex;gap:0;padding:10px 4px 6px">
-          ${[['Section',section||'—'],['Rangée',rowLabel||'—'],['Siège',colLabel||label||'—']].map(([k,v])=>`
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:0 10px">
-              <span style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
-              <span style="font-size:16px;font-weight:700;color:#111827;margin-top:3px;white-space:nowrap">${v}</span>
-            </div>`).join('<div style="width:1px;background:#f3f4f6;margin:4px 0"></div>')}
+        <div style="display:flex;align-items:stretch">
+          ${[['Section',section||'—'],['Rangée',rowLabel||'—'],['Siège',colLabel||label||'—']].map(([k,v],i)=>`
+            ${i>0?'<div style="width:1px;background:#e5e7eb;margin:10px 0"></div>':''}
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 8px 12px">
+              <span style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">${k}</span>
+              <span style="font-size:18px;font-weight:700;color:#111827;margin-top:3px;white-space:nowrap;line-height:1">${v}</span>
+            </div>`).join('')}
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:${barBg};margin-top:4px;gap:10px">
-          ${barLeft}${barRight}
+        <div style="display:flex;align-items:center;gap:7px;margin:0 10px 10px;padding:9px 12px;background:${barBg};border-radius:8px">
+          ${bannerContent}
         </div>`;
       const cr=this._root.getBoundingClientRect(), er=seatEl.getBoundingClientRect();
-      let left=er.left-cr.left+er.width/2-90;
+      let left=er.left-cr.left+er.width/2-110;
       let top=er.top-cr.top-this._tooltip.offsetHeight-8;
       if (top<4) top=er.top-cr.top+er.height+8;
-      this._tooltip.style.borderRadius = '12px';
-      this._tooltip.style.minWidth = '180px';
-      this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-188))+'px';
+      this._tooltip.style.borderRadius = '14px';
+      this._tooltip.style.minWidth = '220px';
+      this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-224))+'px';
       this._tooltip.style.top  = top+'px';
       this._tooltip.style.visibility='visible';
       this._tooltip.style.opacity='1';
@@ -1559,7 +1570,7 @@
         position:'relative',
         display:'flex', alignItems:'center', justifyContent:'center',
         fontWeight:'700', lineHeight:'1', userSelect:'none', boxSizing:'border-box',
-        transition:'filter 0.1s',
+        transition:'box-shadow 0.1s',
         background:bg, color:fg, border,
         cursor:this._cursor(key, planStatus),
         fontSize:fs+'px',
@@ -1582,14 +1593,11 @@
             this._showTooltip(s, {...tipInfo, key, planStatus});
             if (this._selected.has(key)) {
               s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset';
-            } else if (this._isClickable(key, planStatus)) {
-              s.style.filter = 'brightness(1.12)';
             }
           }
         });
         s.addEventListener('mouseleave', () => {
           if (this._mobileStep >= 2) this._hideTooltip();
-          s.style.filter = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
           }
@@ -1605,9 +1613,9 @@
           const cx = sr.left - vr.left + sr.width / 2;
           const cy = sr.top  - vr.top  + sr.height / 2;
           const step = this._mobileStep;
-          if (step === 0) {
-            // Étape 1 : zoom sur la section entière
-            const card = s.closest('[data-section]');
+          if (step === 0 || step === 1) {
+            // Zoom direct sur la section (niveau sièges, 1 seul clic depuis l'overview)
+            const card = s.closest('[data-section]') || s.closest('[data-plancat]');
             if (card) {
               const cardBr   = card.getBoundingClientRect();
               const canvasBr = this._canvas.getBoundingClientRect();
@@ -1615,24 +1623,18 @@
               const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
               const ow = cardBr.width  / this._zoom;
               const oh = cardBr.height / this._zoom;
-              const pad = 20;
+              const pad = 32;
               const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-              this._mobileStep = 1;
+              this._mobileStep = 2;
               this._currentSectionEl = card;
-              const sectionName = card.dataset.section || this._catName(catId);
-              this._mobilePendingTooltip = { section: sectionName, catId, el: card };
+              this._hideTooltip();
               this._animateZoom(z2, px2, py2, 350);
             } else {
               this._mobileStep = 2;
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
-          } else if (step === 1) {
-            // Étape 2 : zoom sur le siège
-            this._hideTooltip();
-            this._mobileStep = 2;
-            this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
           } else {
             if (this._isMobile()) {
               // Step 2 → même siège ou autre siège : on reste zoomé, pas de dézoom.
@@ -1669,11 +1671,10 @@
       el.addEventListener('pointerup', (e) => {
         e.stopPropagation();
         this._onPointerUp();
-        // Step 1 pan-then-release still counts as a section tap
-        if (this._didDrag && this._mobileStep !== 1) return;
+        if (this._didDrag) return;
         if (this._animFrame) return;
         if (this._mobileStep === 0) {
-          // Step 0 → 1 : zoom sur la section entière
+          // Step 0 → 2 directement : zoom au niveau siège sans étape intermédiaire
           const br = el.getBoundingClientRect();
           const canvasBr = this._canvas.getBoundingClientRect();
           const ox = (br.left - canvasBr.left) / this._zoom;
@@ -1684,21 +1685,10 @@
           const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-          this._mobileStep = 1;
-          this._currentSectionEl = el;
-          this._mobilePendingTooltip = { section: sectionLabel, catId, el };
-          this._animateZoom(z2, px2, py2, 350);
-          return;
-        }
-        if (this._mobileStep === 1) {
-          // Step 1 → 2 : zoom to seat level
-          const br = el.getBoundingClientRect();
-          const vr = this._viewport.getBoundingClientRect();
-          const cx = (br.left + br.width  / 2) - vr.left;
-          const cy = (br.top  + br.height / 2) - vr.top;
-          this._hideTooltip();
           this._mobileStep = 2;
-          this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
+          this._currentSectionEl = el;
+          this._hideTooltip();
+          this._animateZoom(z2, px2, py2, 380);
           return;
         }
       });
@@ -1829,8 +1819,8 @@
       }
       card.appendChild(grid); wrapper.appendChild(card);
       wrapper.dataset.plancat = row.categoryId || '';
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); this._showSectionTooltip(card, row.section||this._catName(row.categoryId), row.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); });
       this._addSectionClick(wrapper, row.section||this._catName(row.categoryId), row.categoryId);
       this._canvas.appendChild(wrapper);
     }
@@ -1887,8 +1877,8 @@
       tzCenterBadge._wrapEl=wrapper;
       wrapper.appendChild(tzCenterBadge);
       this._secBadges.push(tzCenterBadge);
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tzSeatsLayer.style.filter=''; this._showSectionTooltip(wrapper, t.section||this._catName(t.categoryId), t.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tzSeatsLayer.style.filter=''; });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); });
       wrapper.dataset.plancat = t.categoryId || '';
       this._addSectionClick(wrapper, t.section||this._catName(t.categoryId), t.categoryId);
       this._canvas.appendChild(wrapper);
@@ -1927,8 +1917,8 @@
       tsCenterBadge._seatsEl=tsSeatsLayer;
       tsCenterBadge._wrapEl=wrapper;
 
-      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tsSeatsLayer.style.filter=''; this._showSectionTooltip(wrapper, ts.section||this._catName(ts.categoryId), ts.categoryId); });
-      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); this._hideTooltip(); });
+      wrapper.addEventListener('mouseenter', () => { this._updateSecBadges(); tsSeatsLayer.style.filter=''; });
+      wrapper.addEventListener('mouseleave', () => { this._updateSecBadges(); });
 
       for (let ri=0;ri<trows;ri++) {
         for (let ci=0;ci<tcols;ci++) {

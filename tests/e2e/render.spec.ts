@@ -1,7 +1,7 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 
 const SANDBOX_RENDER_URL = 'https://api.mitoera.com/sandbox-render'
-  + '?key=pk_pub_e66dc0a5'
+  + '?key=pk_test_a435782e'
   + '&event=ff62c6c1-cf6e-4bcf-adad-e82da7f77813';
 
 async function waitForChart(page: Page) {
