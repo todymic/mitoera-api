@@ -1660,15 +1660,33 @@
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else {
-            // Step 1 mobile (ou step >= 2) → ouvrir modal/tooltip
-            if (mob) {
-              // Step 2 → même siège ou autre siège : on reste zoomé, pas de dézoom.
-              // Si le siège est dans une autre section, on met à jour _currentSectionEl
-              // sans dézoomer (l'utilisateur est déjà en vue détail).
+            if (mob && step === 1) {
+              // Mobile step 1 → zoom vers step 2 (tooltip s'ouvre au step 2 seulement)
+              const card = s.closest('[data-section]') || s.closest('[data-plancat]');
+              if (card) {
+                const cardBr   = card.getBoundingClientRect();
+                const canvasBr = this._canvas.getBoundingClientRect();
+                const ox = (cardBr.left - canvasBr.left) / this._zoom;
+                const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
+                const ow = cardBr.width  / this._zoom;
+                const oh = cardBr.height / this._zoom;
+                const pad = 24;
+                const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 2.5);
+                const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+                const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+                this._mobileStep = 2;
+                this._currentSectionEl = card;
+                this._animateZoom(z2, px2, py2, 350);
+              } else {
+                this._mobileStep = 2;
+                this._zoomToLevel(Math.max(this._zoom * 2, 3), cx, cy);
+              }
+            } else if (mob) {
+              // Mobile step 2+ → tooltip de détail
               const card = s.closest('[data-section]');
               if (card) this._currentSectionEl = card;
               this._mobileStep = 2;
-              this._showMobileModal(s, {...tipInfo, key, planStatus});
+              if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
             } else {
               this._onSeatClick(key, planStatus, s);
               if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
