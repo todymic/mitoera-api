@@ -1391,7 +1391,7 @@
           const ow = cardBr.width  / this._zoom;
           const oh = cardBr.height / this._zoom;
           const pad = 20;
-          const z2  = this._isMobile() ? 3 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+          const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep       = 1;
@@ -1625,7 +1625,7 @@
               const ow = cardBr.width  / this._zoom;
               const oh = cardBr.height / this._zoom;
               const pad = 32;
-              const z2  = this._isMobile() ? 3 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+              const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
               this._mobileStep = 2;
@@ -1676,7 +1676,7 @@
           const ow = br.width  / this._zoom;
           const oh = br.height / this._zoom;
           const pad = 32;
-          const z2  = this._isMobile() ? 3 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+          const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep = 2;
