@@ -124,6 +124,13 @@
       docker stop $BLUE >/dev/null 2>/dev/null || true
       docker rm   $BLUE >/dev/null 2>/dev/null || true
 
+      # docker run --env-file ne fait pas l'expansion des ${VAR} contrairement à compose.
+      # On lit les variables postgres pour reconstruire DATABASE_URL expandée.
+      PG_USER=$(grep '^POSTGRES_USER=' $ENV_FILE | cut -d= -f2 | tr -d '"')
+      PG_PASS=$(grep '^POSTGRES_PASSWORD=' $ENV_FILE | cut -d= -f2 | tr -d '"')
+      PG_DB=$(grep '^POSTGRES_DB=' $ENV_FILE | cut -d= -f2 | tr -d '"')
+      DB_URL="postgresql://${PG_USER}:${PG_PASS}@database:5432/${PG_DB}?serverVersion=16&charset=utf8"
+
       EXTRA_ENV=""
       if [ "$APP_SANDBOX_FLAG" = "true" ]; then
         EXTRA_ENV="-e APP_SANDBOX=true"
@@ -137,6 +144,7 @@
         --env-file ${ENV_FILE} \
         -e APP_ENV=prod \
         -e REDIS_URL=redis://redis:6379 \
+        -e DATABASE_URL="$DB_URL" \
         ${EXTRA_ENV} \
         mitoera/app:latest
 
