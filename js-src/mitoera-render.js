@@ -865,11 +865,11 @@
       const checkSvg = `<svg viewBox="0 0 14 14" width="16" height="16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7L5.5 10.5L12 4"/></svg>`;
       let bannerContent;
       if (isUnavailable) {
-        bannerContent = `<span style="font-size:24px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
+        bannerContent = `<span style="font-size:20px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
       } else if (sel) {
-        bannerContent = `${checkSvg}<span style="font-size:24px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:24px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `${checkSvg}<span style="font-size:20px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       } else {
-        bannerContent = `<span style="font-size:24px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:24px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `<span style="font-size:20px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       }
 
       this._tooltip.innerHTML = `
@@ -1570,7 +1570,7 @@
         position:'relative',
         display:'flex', alignItems:'center', justifyContent:'center',
         fontWeight:'700', lineHeight:'1', userSelect:'none', boxSizing:'border-box',
-        transition:'box-shadow 0.1s',
+        transition:'box-shadow 0.12s, transform 0.12s',
         background:bg, color:fg, border,
         cursor:this._cursor(key, planStatus),
         fontSize:fs+'px',
@@ -1591,15 +1591,24 @@
         s.addEventListener('mouseenter', () => {
           if (!this._isMobile() && this._mobileStep >= 2 && planStatus !== 'disabled') {
             this._showTooltip(s, {...tipInfo, key, planStatus});
+            s.style.transform = 'scale(1.25)';
+            s.style.zIndex = '10';
+            const col = this._catColor(catId);
             if (this._selected.has(key)) {
-              s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset';
+              s.style.boxShadow = col+' 0px 0px 0px 2px, rgba(255,255,255,0.9) 0px 0px 0px 1px inset, 0 4px 10px rgba(0,0,0,0.2)';
+            } else {
+              s.style.boxShadow = col+' 0px 0px 0px 2px, 0 4px 10px rgba(0,0,0,0.18)';
             }
           }
         });
         s.addEventListener('mouseleave', () => {
           if (this._mobileStep >= 2) this._hideTooltip();
+          s.style.transform = '';
+          s.style.zIndex = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
+          } else {
+            s.style.boxShadow = 'none';
           }
         });
         s.addEventListener('pointerdown', () => { this._didDrag=false; });
