@@ -103,17 +103,113 @@
     docker compose -f docker-compose.prod.yml build app app-sandbox
   become: true
 
-# Étape 2b — Recréer les containers avec la nouvelle image (déjà buildée).
-# La coupure est réduite au seul restart (~3-5 s) et non à la durée du build.
-- name: Redémarrer les containers app avec la nouvelle image
+# Étape 2b — Blue-green zero-downtime pour app et app-sandbox.
+# Séquence : démarrer le container blue (nouvelle image) → attendre healthy
+# → swap DNS Docker (rename) → nginx route vers new via cache DNS 10s
+# → stopper l'ancien. Aucune coupure visible côté client.
+- name: Blue-green deploy app (prod) — zero downtime
+  shell: |
+    set -e
+    cd {{ api_path }}
+
+    OLD=mitoera-app
+    BLUE=mitoera-app-blue
+
+    # Charger les env prod (DATABASE_URL, JWT_SECRET, etc.)
+    export $(grep -v '^#' .env.prod | xargs) 2>/dev/null || true
+
+    # Lancer le container blue avec la nouvelle image
+    docker run -d --name $BLUE \
+      --network api_mitoera-network \
+      --restart unless-stopped \
+      -v {{ api_path }}/var:/app/var \
+      -v {{ api_path }}/config/jwt:/app/config/jwt:ro \
+      --env-file {{ api_path }}/.env.prod \
+      -e REDIS_URL=redis://redis:6379 \
+      --health-cmd "pgrep php-fpm > /dev/null || exit 1" \
+      --health-interval 5s \
+      --health-start-period 20s \
+      --health-retries 5 \
+      mitoera/app:latest
+
+    # Attendre que blue soit healthy
+    echo "Attente blue healthy..."
+    for i in $(seq 1 30); do
+      STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
+      [ "$STATUS" = "healthy" ] && break
+      sleep 3
+    done
+    STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
+    if [ "$STATUS" != "healthy" ]; then
+      echo "ERREUR: blue pas healthy — rollback"
+      docker stop $BLUE && docker rm $BLUE
+      exit 1
+    fi
+
+    # Swap atomique : nginx cache DNS 10s → route encore vers l'ancien IP
+    # pendant que le rename se fait (< 1s)
+    docker rename $OLD ${OLD}-old
+    docker rename $BLUE $OLD
+
+    # Laisser le cache DNS nginx expirer et les connexions in-flight terminer
+    sleep 15
+
+    # Supprimer l'ancien container
+    docker stop ${OLD}-old && docker rm ${OLD}-old
+    echo "Blue-green prod OK"
+  become: true
+
+- name: Blue-green deploy app-sandbox — zero downtime
+  shell: |
+    set -e
+    cd {{ api_path }}
+
+    OLD=mitoera-app-sandbox
+    BLUE=mitoera-app-sandbox-blue
+
+    docker run -d --name $BLUE \
+      --network api_mitoera-network \
+      --restart unless-stopped \
+      -v {{ api_path }}/var-sandbox:/app/var \
+      -v {{ api_path }}/config/jwt:/app/config/jwt:ro \
+      --env-file {{ api_path }}/.env.sandbox \
+      -e APP_ENV=prod \
+      -e APP_SANDBOX=true \
+      -e REDIS_URL=redis://redis:6379 \
+      --health-cmd "pgrep php-fpm > /dev/null || exit 1" \
+      --health-interval 5s \
+      --health-start-period 20s \
+      --health-retries 5 \
+      mitoera/app:latest
+
+    echo "Attente sandbox-blue healthy..."
+    for i in $(seq 1 30); do
+      STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
+      [ "$STATUS" = "healthy" ] && break
+      sleep 3
+    done
+    STATUS=$(docker inspect -f '{{ '{{' }}.State.Health.Status{{ '}}' }}' $BLUE 2>/dev/null || echo "none")
+    if [ "$STATUS" != "healthy" ]; then
+      echo "ERREUR: sandbox-blue pas healthy — rollback"
+      docker stop $BLUE && docker rm $BLUE
+      exit 1
+    fi
+
+    docker rename $OLD ${OLD}-old
+    docker rename $BLUE $OLD
+    sleep 15
+    docker stop ${OLD}-old && docker rm ${OLD}-old
+    echo "Blue-green sandbox OK"
+  become: true
+
+# Cron : pas de trafic direct, recreate simple
+- name: Redémarrer cron et cron-sandbox
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
       - docker-compose.prod.yml
     services:
-      - app
       - cron
-      - app-sandbox
       - cron-sandbox
     state: present
     pull: missing
