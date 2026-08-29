@@ -1637,12 +1637,16 @@
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else {
-            // step >= 2 → tooltip + sélection
+            // step >= 2 → modal mobile ou tooltip desktop
             const card = s.closest('[data-section]');
             if (card) this._currentSectionEl = card;
             this._mobileStep = 2;
-            this._onSeatClick(key, planStatus, s);
-            if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
+            if (this._isMobile()) {
+              this._showMobileModal(s, {...tipInfo, key, planStatus});
+            } else {
+              this._onSeatClick(key, planStatus, s);
+              if (planStatus !== 'disabled') this._showTooltip(s, {...tipInfo, key, planStatus});
+            }
           }
         });
       }
