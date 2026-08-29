@@ -824,6 +824,7 @@
         opacity:'0', visibility:'hidden',
         transition:'opacity 0.15s ease, visibility 0.15s ease',
       });
+      tip.classList.add('mr-tooltip');
       root.appendChild(tip);
       return tip;
     }

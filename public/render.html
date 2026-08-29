@@ -20,11 +20,13 @@
     html, body { width: 100%; height: 100%; overflow: hidden; background: #fff; }
     #wrapper { display: flex; flex-direction: column; height: 100%; position: relative; }
     /* #chart au-dessus du filigrane (z-index:101 > z-index:100).
-       PlaceRender hardcode background:white en inline style → on passe outre avec !important
-       pour que les zones vides du plan soient transparentes et laissent voir le filigrane. */
+       PlaceRender hardcode background:white en inline style sur #chart et sur le wrapper canvas
+       (will-change:transform) → on cible uniquement ces deux éléments avec !important pour
+       laisser voir le filigrane dans les zones vides, sans affecter le fond blanc des tooltips. */
     #chart { flex: 1; min-height: 0; position: relative; z-index: 101; background: transparent !important; }
-    #chart > div { background: transparent !important; }
     #chart div[style*="will-change"] { background: transparent !important; }
+    /* Tooltip PlaceRender : ciblé via la classe mr-tooltip ajoutée dans mitoera-render.js */
+    #chart .mr-tooltip { background: #fff !important; }
     #stats-bar {
       flex-shrink: 0;
       display: flex;
