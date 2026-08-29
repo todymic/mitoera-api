@@ -1713,7 +1713,7 @@
       });
       el.addEventListener('pointerup', (e) => {
         e.stopPropagation();
-        this._onPointerUp();
+        this._onPointerUp(e);
         if (this._didDrag) return;
         if (this._animFrame) return;
         if (this._mobileStep === 0) {
