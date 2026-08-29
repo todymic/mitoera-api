@@ -1613,8 +1613,9 @@
           const cx = sr.left - vr.left + sr.width / 2;
           const cy = sr.top  - vr.top  + sr.height / 2;
           const step = this._mobileStep;
-          if (step === 0 || step === 1) {
-            // Zoom direct sur la section (niveau sièges, 1 seul clic depuis l'overview)
+          // Desktop step 0 ou mobile step 1 → zoom section + passer en step 2
+          const needsSectionZoom = (step === 0 && !this._isMobile()) || (step === 1 && this._isMobile());
+          if (needsSectionZoom) {
             const card = s.closest('[data-section]') || s.closest('[data-plancat]');
             if (card) {
               const cardBr   = card.getBoundingClientRect();
@@ -1633,6 +1634,28 @@
               this._animateZoom(z2, px2, py2, 350);
             } else {
               this._mobileStep = 2;
+              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
+            }
+          } else if (step === 0 && this._isMobile()) {
+            // Mobile step 0 : clic sur siège → zoom section (step 1), comme _addSectionClick
+            const card = s.closest('[data-section]') || s.closest('[data-plancat]');
+            if (card) {
+              const cardBr   = card.getBoundingClientRect();
+              const canvasBr = this._canvas.getBoundingClientRect();
+              const ox = (cardBr.left - canvasBr.left) / this._zoom;
+              const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
+              const ow = cardBr.width  / this._zoom;
+              const oh = cardBr.height / this._zoom;
+              const pad = 32;
+              const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+              const px2 = -(ox + ow/2) * z2 + this._cw / 2;
+              const py2 = -(oy + oh/2) * z2 + this._ch / 2;
+              this._mobileStep = 1;
+              this._currentSectionEl = card;
+              this._hideTooltip();
+              this._animateZoom(z2, px2, py2, 350);
+            } else {
+              this._mobileStep = 1;
               this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
             }
           } else {
@@ -1674,7 +1697,6 @@
         if (this._didDrag) return;
         if (this._animFrame) return;
         if (this._mobileStep === 0) {
-          // Step 0 → 2 directement : zoom au niveau siège sans étape intermédiaire
           const br = el.getBoundingClientRect();
           const canvasBr = this._canvas.getBoundingClientRect();
           const ox = (br.left - canvasBr.left) / this._zoom;
@@ -1685,7 +1707,9 @@
           const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-          this._mobileStep = 2;
+          // Mobile : step 0 → 1 (zoom section, puis 2e clic pour sièges)
+          // Desktop : step 0 → 2 directement
+          this._mobileStep = this._isMobile() ? 1 : 2;
           this._currentSectionEl = el;
           this._hideTooltip();
           this._animateZoom(z2, px2, py2, 380);
