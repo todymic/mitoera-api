@@ -865,11 +865,11 @@
       const checkSvg = `<svg viewBox="0 0 14 14" width="16" height="16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7L5.5 10.5L12 4"/></svg>`;
       let bannerContent;
       if (isUnavailable) {
-        bannerContent = `<span style="font-size:15px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
+        bannerContent = `<span style="font-size:24px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
       } else if (sel) {
-        bannerContent = `${checkSvg}<span style="font-size:15px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `${checkSvg}<span style="font-size:24px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:24px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       } else {
-        bannerContent = `<span style="font-size:15px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `<span style="font-size:24px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:24px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       }
 
       this._tooltip.innerHTML = `
@@ -878,7 +878,7 @@
             ${i>0?'<div style="width:1px;background:#e5e7eb;margin:12px 0"></div>':''}
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:18px 12px 14px">
               <span style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">${k}</span>
-              <span style="font-size:24px;font-weight:700;color:#111827;margin-top:4px;white-space:nowrap;line-height:1">${v}</span>
+              <span style="font-size:18px;font-weight:700;color:#111827;margin-top:4px;white-space:nowrap;line-height:1">${v}</span>
             </div>`).join('')}
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin:0 12px 12px;padding:11px 14px;background:${barBg};border-radius:10px">
