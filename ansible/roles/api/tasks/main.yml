@@ -292,11 +292,17 @@
 
 # Idem pour sandbox — cache géré par l'entrypoint avant PHP-FPM.
 
-- name: Démarrer tous les services restants (worker, bo, ui, admin, cron…)
+- name: Démarrer les services restants (worker, nginx, bo, ui, admin)
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
       - docker-compose.prod.yml
+    services:
+      - worker
+      - nginx
+      - bo
+      - ui
+      - admin
     state: present
     pull: missing
     recreate: auto
