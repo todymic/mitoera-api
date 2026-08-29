@@ -115,8 +115,8 @@
     OLD=mitoera-app
     BLUE=mitoera-app-blue
 
-    # Charger les env prod (DATABASE_URL, JWT_SECRET, etc.)
-    export $(grep -v '^#' .env.prod | xargs) 2>/dev/null || true
+    # Nettoyer un éventuel container blue orphelin d'un deploy précédent
+    docker stop $BLUE 2>/dev/null && docker rm $BLUE 2>/dev/null || true
 
     # Lancer le container blue avec la nouvelle image
     docker run -d --name $BLUE \
@@ -146,16 +146,16 @@
       exit 1
     fi
 
-    # Swap atomique : nginx cache DNS 10s → route encore vers l'ancien IP
-    # pendant que le rename se fait (< 1s)
-    docker rename $OLD ${OLD}-old
-    docker rename $BLUE $OLD
-
-    # Laisser le cache DNS nginx expirer et les connexions in-flight terminer
-    sleep 15
-
-    # Supprimer l'ancien container
-    docker stop ${OLD}-old && docker rm ${OLD}-old
+    # Si l'ancien container existe → swap atomique
+    # Sinon → renommer blue directement en OLD
+    if docker inspect $OLD > /dev/null 2>&1; then
+      docker rename $OLD ${OLD}-old
+      docker rename $BLUE $OLD
+      sleep 15
+      docker stop ${OLD}-old && docker rm ${OLD}-old
+    else
+      docker rename $BLUE $OLD
+    fi
     echo "Blue-green prod OK"
   become: true
 
@@ -166,6 +166,9 @@
 
     OLD=mitoera-app-sandbox
     BLUE=mitoera-app-sandbox-blue
+
+    # Nettoyer un éventuel container blue orphelin d'un deploy précédent
+    docker stop $BLUE 2>/dev/null && docker rm $BLUE 2>/dev/null || true
 
     docker run -d --name $BLUE \
       --network api_mitoera-network \
@@ -195,10 +198,14 @@
       exit 1
     fi
 
-    docker rename $OLD ${OLD}-old
-    docker rename $BLUE $OLD
-    sleep 15
-    docker stop ${OLD}-old && docker rm ${OLD}-old
+    if docker inspect $OLD > /dev/null 2>&1; then
+      docker rename $OLD ${OLD}-old
+      docker rename $BLUE $OLD
+      sleep 15
+      docker stop ${OLD}-old && docker rm ${OLD}-old
+    else
+      docker rename $BLUE $OLD
+    fi
     echo "Blue-green sandbox OK"
   become: true
 
