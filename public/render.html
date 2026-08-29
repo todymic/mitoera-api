@@ -143,6 +143,14 @@
     const withCheckout = params.get('checkout') === '1';
     const showLegend   = params.get('legend') !== '0';
     const showResume   = params.get('resume') === '1';
+
+    // The #stats-bar footer (pills like "GOLD — 1 siège") is a page-level
+    // element independent of PlaceRender's own internal showResume handling
+    // — without this, it always showed regardless of the showResume param.
+    if (!showResume) {
+      document.getElementById('stats-bar').style.display = 'none';
+    }
+
     const API_BASE   = location.origin;
     const API_PREFIX = (window.__MITOERA_API_PREFIX__ || '/api');
     const isSandbox  = API_PREFIX === '/sandbox-api' || (key && key.startsWith('pk_test_'));
