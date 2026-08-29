@@ -1595,7 +1595,7 @@
           }
         });
         s.addEventListener('mouseleave', () => {
-          if (this._mobileStep >= 2) this._hideTooltip();
+          if (!this._isMobile() && this._mobileStep >= 2) this._hideTooltip();
           s.style.filter = '';
           if (this._selected.has(key)) {
             s.style.boxShadow = this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset';
