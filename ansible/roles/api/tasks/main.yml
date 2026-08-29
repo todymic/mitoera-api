@@ -119,6 +119,7 @@
       VAR_MOUNT=$4
       APP_SANDBOX_FLAG=$5
       DB_HOST=$6
+      NET_ALIAS=$7
       API_PATH={{ api_path }}
 
       # Nettoyer un éventuel container blue orphelin
@@ -139,6 +140,7 @@
 
       docker run -d --name $BLUE \
         --network api_mitoera-network \
+        --network-alias $NET_ALIAS \
         --restart unless-stopped \
         -v ${VAR_MOUNT}:/app/var \
         -v ${API_PATH}/config/jwt:/app/config/jwt:ro \
@@ -183,6 +185,7 @@
     {{ api_path }}/var
     false
     database
+    app
   become: true
 
 - name: Blue-green deploy app-sandbox — zero downtime
@@ -194,6 +197,7 @@
     {{ api_path }}/var-sandbox
     true
     database-sandbox
+    app-sandbox
   become: true
 
 # Cron : pas de trafic direct, recreate simple
