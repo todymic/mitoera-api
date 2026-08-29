@@ -41,11 +41,11 @@ services:
     # ApiKeyService — env token pour les préfixes live/test
     App\Service\ApiKeyService:
         arguments:
-            $appEnv: '%env(string:APP_ENV)%'
+            $appSandbox: '%env(bool:APP_SANDBOX)%'
 
     App\Controller\ResolveKeyController:
         arguments:
-            $appEnv: '%env(string:APP_ENV)%'
+            $appSandbox: '%env(bool:APP_SANDBOX)%'
         tags: ['controller.service_arguments']
 
     # BookingService configuration

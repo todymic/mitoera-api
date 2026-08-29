@@ -22,7 +22,7 @@ class ResolveKeyController extends AbstractController
 {
     public function __construct(
         private ApiKeyRepository $apiKeyRepository,
-        private string $appEnv = 'prod',
+        private bool $appSandbox = false,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -39,7 +39,7 @@ class ResolveKeyController extends AbstractController
             return $this->json(['error' => 'Key not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $environment = $this->appEnv === 'sandbox' ? 'test' : 'live';
+        $environment = $this->appSandbox ? 'test' : 'live';
 
         // Les clés legacy (pk_pub_) sont dans l'env où elles ont été créées.
         // Les nouvelles clés (pk_live_ / pk_test_) encodent l'env dans leur préfixe.

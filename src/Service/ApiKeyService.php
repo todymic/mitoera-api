@@ -23,7 +23,7 @@ class ApiKeyService
         private EntityManagerInterface $em,
         private SluggerInterface $slugger,
         private WorkspaceContext $workspaceContext,
-        private string $appEnv = 'prod',
+        private bool $appSandbox = false,
     ) {
         $this->hasherFactory = new PasswordHasherFactory([
             ApiKey::class => ['algorithm' => 'bcrypt'],
@@ -139,7 +139,7 @@ class ApiKeyService
 
     private function envToken(): string
     {
-        return $this->appEnv === 'sandbox' ? 'test' : 'live';
+        return $this->appSandbox ? 'test' : 'live';
     }
 
     private function generateKeyId(ApiKeyScope $scope): string
