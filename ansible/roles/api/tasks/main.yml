@@ -138,6 +138,24 @@
   delay: 5
   become: true
 
+- name: Attendre que app soit healthy (PHP-FPM prêt)
+  community.docker.docker_container_info:
+    name: mitoera-app
+  register: app_info
+  until: app_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 5
+  become: true
+
+- name: Attendre que app-sandbox soit healthy
+  community.docker.docker_container_info:
+    name: mitoera-app-sandbox
+  register: app_sandbox_info
+  until: app_sandbox_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 5
+  become: true
+
 - name: Exécuter les migrations Doctrine (prod)
   community.docker.docker_container_exec:
     container: mitoera-app

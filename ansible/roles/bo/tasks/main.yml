@@ -32,3 +32,12 @@
     state: present
     recreate: always
   become: true
+
+- name: Attendre que le BO soit healthy (nginx prêt)
+  community.docker.docker_container_info:
+    name: mitoera-bo
+  register: bo_info
+  until: bo_info.container.State.Health.Status == 'healthy'
+  retries: 15
+  delay: 5
+  become: true

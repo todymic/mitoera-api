@@ -88,5 +88,8 @@ USER www-data
 
 EXPOSE 9000
 
+HEALTHCHECK --interval=5s --timeout=3s --start-period=20s --retries=5 \
+    CMD pgrep php-fpm > /dev/null || exit 1
+
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["php-fpm"]
