@@ -12,13 +12,20 @@ async function getZoom(page: Page): Promise<number> {
   return page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
 }
 
-// The seat pointerup handler uses _mobileStep (even on desktop):
-//   step 0 → section zoom, step 1 → seat zoom, step 2 → _onSeatClick (select)
-// So 3 clicks are needed to reach selection from a fresh page.
+// Desktop: step 0 → 2 (section zoom direct) → _onSeatClick — 2 clicks
 async function clickSeatToSelect(page: Page, seat: Locator) {
-  await seat.click(); await page.waitForTimeout(700); // step 0 → 1 (section zoom)
-  await seat.click(); await page.waitForTimeout(700); // step 1 → 2 (seat zoom)
+  await seat.click(); await page.waitForTimeout(700); // step 0 → 2 (section zoom)
   await seat.click(); await page.waitForTimeout(400); // step 2 → _onSeatClick
+}
+
+// Mobile: step 0 → 1 (section zoom) → 2 (modal) — tap section wrapper then seat
+async function mobileTapSeatToSelect(page: Page, seat: Locator) {
+  // step 0 → 1: tap on section wrapper
+  const card = await seat.evaluateHandle(el =>
+    el.closest('[data-section]') || el.closest('[data-plancat]') || el
+  );
+  await (card as Locator).tap(); await page.waitForTimeout(700); // step 0 → 1
+  await seat.tap();              await page.waitForTimeout(700); // step 1 → modal
 }
 
 // ── Chart loading ─────────────────────────────────────────────────────────────
@@ -133,4 +140,58 @@ test('dragging pans the canvas', async ({ page }) => {
   });
 
   expect(transformAfter).not.toBe(transformBefore);
+});
+
+// ── Mobile flow ───────────────────────────────────────────────────────────────
+
+test.describe('mobile', () => {
+  test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
+
+  test('mobile: chart loads', async ({ page }) => {
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+    await expect(page.locator('#chart')).toBeVisible();
+  });
+
+  test('mobile: step 0 → 1 (section zoom) on section tap', async ({ page }) => {
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+
+    const section = page.locator('[data-section],[data-plancat]').first();
+    if (await section.count() === 0) test.skip();
+
+    const stepBefore = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
+    expect(stepBefore).toBe(0);
+
+    await section.tap();
+    await page.waitForTimeout(700);
+
+    const stepAfter = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
+    expect(stepAfter).toBe(1);
+  });
+
+  test('mobile: step 1 → modal on seat tap', async ({ page }) => {
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+
+    const seat = page.locator('[data-sk][data-ps="enabled"]').first();
+    if (await seat.count() === 0) test.skip();
+
+    // step 0 → 1
+    const card = await seat.evaluateHandle(el =>
+      (el.closest('[data-section]') || el.closest('[data-plancat]') || el) as Element
+    );
+    await page.locator('[data-section],[data-plancat]').first().tap();
+    await page.waitForTimeout(700);
+
+    // step 1 → modal
+    await seat.tap();
+    await page.waitForTimeout(700);
+
+    // Le modal mobile doit apparaître
+    const modalVisible = await page.evaluate(() =>
+      !!(document.getElementById('_mm-select') || document.getElementById('_mm-close'))
+    );
+    expect(modalVisible).toBe(true);
+  });
 });
