@@ -22,13 +22,60 @@
   shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache ui
   become: true
 
-- name: Démarrer l'UI
-  community.docker.docker_compose_v2:
-    project_src: "{{ api_path }}"
-    files:
-      - docker-compose.prod.yml
-    services:
-      - ui
-    state: present
-    recreate: always
+# Blue-green UI : même principe que BO (Traefik pooling via labels partagés)
+- name: Copier le script blue-green web sur le serveur
+  copy:
+    dest: /tmp/blue-green-web.sh
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+      OLD=$1
+      BLUE=$2
+      IMAGE=$3
+
+      docker stop $BLUE 2>/dev/null || true
+      docker rm   $BLUE 2>/dev/null || true
+
+      if docker inspect $OLD >/dev/null 2>/dev/null; then
+        DOCKER_ARGS=$(docker inspect $OLD | python3 -c "
+      import sys, json, shlex
+      c = json.load(sys.stdin)[0]
+      args = []
+      for net in c['NetworkSettings']['Networks']:
+          args += ['--network', net]
+      for k, v in c['Config']['Labels'].items():
+          args += ['--label', k + '=' + v]
+      print(' '.join(shlex.quote(a) for a in args))
+      ")
+        eval "docker run -d --name $BLUE --restart unless-stopped $DOCKER_ARGS $IMAGE"
+      else
+        docker run -d --name $BLUE --restart unless-stopped \
+          --network api_mitoera-network --network api_web \
+          $IMAGE
+      fi
+
+      ALIVE=0
+      for i in $(seq 1 20); do
+        docker exec $BLUE nginx -t >/dev/null 2>/dev/null && ALIVE=1 || true
+        [ "$ALIVE" = "1" ] && break
+        sleep 2
+      done
+      if [ "$ALIVE" != "1" ]; then
+        docker stop $BLUE || true
+        docker rm   $BLUE || true
+        exit 1
+      fi
+
+      if docker inspect $OLD >/dev/null 2>/dev/null; then
+        sleep 5
+        docker stop $OLD || true
+        docker rm   $OLD || true
+      fi
+      docker rename $BLUE $OLD 2>/dev/null || true
+      echo "Blue-green $OLD OK"
+  become: true
+
+- name: Blue-green UI — zero downtime
+  shell: /tmp/blue-green-web.sh mitoera-ui mitoera-ui-blue mitoera/ui:latest
   become: true

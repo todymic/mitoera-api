@@ -301,7 +301,9 @@
 
 # Idem pour sandbox — cache géré par l'entrypoint avant PHP-FPM.
 
-- name: Démarrer les services restants (worker, nginx, bo, ui, admin)
+# worker, nginx, admin : recreate auto (pas de trafic direct ou nginx ne change pas souvent).
+# BO et UI sont gérés par leur propre rôle blue-green → absents ici.
+- name: Démarrer les services restants (worker, nginx, admin)
   community.docker.docker_compose_v2:
     project_src: "{{ api_path }}"
     files:
@@ -309,8 +311,6 @@
     services:
       - worker
       - nginx
-      - bo
-      - ui
       - admin
     state: present
     pull: missing

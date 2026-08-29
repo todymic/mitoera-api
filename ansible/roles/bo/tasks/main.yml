@@ -22,22 +22,67 @@
   shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache bo
   become: true
 
-- name: Démarrer le BO
-  community.docker.docker_compose_v2:
-    project_src: "{{ api_path }}"
-    files:
-      - docker-compose.prod.yml
-    services:
-      - bo
-    state: present
-    recreate: always
+# Blue-green BO : démarre le container blue avec les mêmes labels Traefik que l'ancien
+# → Traefik pool old+blue automatiquement → zéro coupure → on arrête l'ancien.
+- name: Copier le script blue-green web sur le serveur
+  copy:
+    dest: /tmp/blue-green-web.sh
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+      OLD=$1
+      BLUE=$2
+      IMAGE=$3
+
+      docker stop $BLUE 2>/dev/null || true
+      docker rm   $BLUE 2>/dev/null || true
+
+      if docker inspect $OLD >/dev/null 2>/dev/null; then
+        # Lire réseaux et labels de l'ancien container via python (gère les backticks Traefik)
+        DOCKER_ARGS=$(docker inspect $OLD | python3 -c "
+      import sys, json, shlex
+      c = json.load(sys.stdin)[0]
+      args = []
+      for net in c['NetworkSettings']['Networks']:
+          args += ['--network', net]
+      for k, v in c['Config']['Labels'].items():
+          args += ['--label', k + '=' + v]
+      print(' '.join(shlex.quote(a) for a in args))
+      ")
+        eval "docker run -d --name $BLUE --restart unless-stopped $DOCKER_ARGS $IMAGE"
+      else
+        # Premier deploy : pas d'ancien container, démarrer directement
+        docker run -d --name $BLUE --restart unless-stopped \
+          --network api_mitoera-network --network api_web \
+          $IMAGE
+      fi
+
+      # Attendre que nginx soit prêt
+      echo "Attente $BLUE ready..."
+      ALIVE=0
+      for i in $(seq 1 20); do
+        docker exec $BLUE nginx -t >/dev/null 2>/dev/null && ALIVE=1 || true
+        [ "$ALIVE" = "1" ] && break
+        sleep 2
+      done
+      if [ "$ALIVE" != "1" ]; then
+        echo "ERREUR: $BLUE pas démarré - rollback"
+        docker stop $BLUE || true
+        docker rm   $BLUE || true
+        exit 1
+      fi
+
+      if docker inspect $OLD >/dev/null 2>/dev/null; then
+        # Traefik voit maintenant OLD + BLUE comme backends (même labels) → zéro coupure
+        sleep 5
+        docker stop $OLD || true
+        docker rm   $OLD || true
+      fi
+      docker rename $BLUE $OLD 2>/dev/null || true
+      echo "Blue-green $OLD OK"
   become: true
 
-- name: Attendre que le BO soit healthy (nginx prêt)
-  community.docker.docker_container_info:
-    name: mitoera-bo
-  register: bo_info
-  until: bo_info.container.State.Health.Status == 'healthy'
-  retries: 15
-  delay: 5
+- name: Blue-green BO — zero downtime
+  shell: /tmp/blue-green-web.sh mitoera-bo mitoera-bo-blue mitoera/bo:latest
   become: true
