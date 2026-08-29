@@ -1670,8 +1670,7 @@
                 const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
                 const ow = cardBr.width  / this._zoom;
                 const oh = cardBr.height / this._zoom;
-                const pad = 8;
-                const z2  = Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 6);
+                const z2  = 10;
                 const px2 = -(ox + ow/2) * z2 + this._cw / 2;
                 const py2 = -(oy + oh/2) * z2 + this._ch / 2;
                 this._mobileStep = 2;
