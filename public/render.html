@@ -138,9 +138,11 @@
     const showResume   = params.get('resume') === '1';
     const API_BASE   = location.origin;
     const API_PREFIX = (window.__MITOERA_API_PREFIX__ || '/api');
+    const isSandbox  = API_PREFIX === '/sandbox-api' || (key && key.startsWith('pk_test_'));
+    const sandboxHeaders = isSandbox ? { 'X-Api-Mode': 'sandbox' } : {};
 
     // Affiche le filigrane TEST si clé sandbox (pk_test_) ou API sandbox
-    if (API_PREFIX === '/sandbox-api' || (key && key.startsWith('pk_test_'))) {
+    if (isSandbox) {
       document.getElementById('sandbox-watermark').style.display = 'block';
     }
 
@@ -156,7 +158,7 @@
     async function refreshSession() {
       const res = await fetch(`${API_BASE}${API_PREFIX}/public/events/${mitoerEventId}/session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...sandboxHeaders },
         body: JSON.stringify({ publicKeyId: key }),
       });
       if (!res.ok) throw new Error('Impossible de renouveler la session');
@@ -167,7 +169,7 @@
     }
 
     async function fetchWidget(url, opts = {}) {
-      opts.headers = { ...(opts.headers || {}), Authorization: `Widget ${sessionToken}` };
+      opts.headers = { ...(opts.headers || {}), ...sandboxHeaders, Authorization: `Widget ${sessionToken}` };
       let res = await fetch(url, opts);
       if (res.status === 401) {
         await refreshSession();
@@ -251,7 +253,7 @@
         // Session
         const sessionRes = await fetch(`${API_BASE}${API_PREFIX}/public/events/${eventId}/session`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...sandboxHeaders },
           body: JSON.stringify({ publicKeyId: key }),
         });
         if (!sessionRes.ok) throw new Error('Clé publique invalide ou événement introuvable');
