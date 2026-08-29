@@ -170,7 +170,33 @@ test.describe('mobile', () => {
     expect(stepAfter).toBe(1);
   });
 
-  test('mobile: step 1 → modal on seat tap', async ({ page }) => {
+  test('mobile: step 1 → step 2 (zoom détail) on seat tap', async ({ page }) => {
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+
+    const seat = page.locator('[data-sk][data-ps="enabled"]').first();
+    if (await seat.count() === 0) test.skip();
+
+    const zoomBefore = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
+
+    // step 0 → 1 (zoom section)
+    await page.locator('[data-section],[data-plancat]').first().tap();
+    await page.waitForTimeout(700);
+
+    const zoomStep1 = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
+    expect(zoomStep1).toBeGreaterThan(zoomBefore);
+
+    // step 1 → 2 (zoom détail, pas de modal)
+    await seat.tap();
+    await page.waitForTimeout(700);
+
+    const zoomStep2 = await page.evaluate(() => (window as any).__renderer__?._zoom ?? 0);
+    const step2 = await page.evaluate(() => (window as any).__renderer__?._mobileStep ?? -1);
+    expect(zoomStep2).toBeGreaterThan(zoomStep1);
+    expect(step2).toBe(2);
+  });
+
+  test('mobile: step 2 → tooltip de détail on seat tap', async ({ page }) => {
     await page.goto(SANDBOX_RENDER_URL);
     await waitForChart(page);
 
@@ -178,20 +204,19 @@ test.describe('mobile', () => {
     if (await seat.count() === 0) test.skip();
 
     // step 0 → 1
-    const card = await seat.evaluateHandle(el =>
-      (el.closest('[data-section]') || el.closest('[data-plancat]') || el) as Element
-    );
     await page.locator('[data-section],[data-plancat]').first().tap();
     await page.waitForTimeout(700);
-
-    // step 1 → modal
+    // step 1 → 2
     await seat.tap();
     await page.waitForTimeout(700);
+    // step 2 → tooltip
+    await seat.tap();
+    await page.waitForTimeout(500);
 
-    // Le modal mobile doit apparaître
-    const modalVisible = await page.evaluate(() =>
-      !!(document.getElementById('_mm-select') || document.getElementById('_mm-close'))
-    );
-    expect(modalVisible).toBe(true);
+    const tooltipVisible = await page.evaluate(() => {
+      const t = document.querySelector('.mr-tooltip') as HTMLElement | null;
+      return t ? t.style.visibility === 'visible' || t.style.opacity === '1' : false;
+    });
+    expect(tooltipVisible).toBe(true);
   });
 });
