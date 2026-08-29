@@ -862,35 +862,35 @@
         barRight = price ? `<span style="font-size:20px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : '';
       }
 
-      const checkSvg = `<svg viewBox="0 0 14 14" width="13" height="13" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7L5.5 10.5L12 4"/></svg>`;
+      const checkSvg = `<svg viewBox="0 0 14 14" width="16" height="16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7L5.5 10.5L12 4"/></svg>`;
       let bannerContent;
       if (isUnavailable) {
-        bannerContent = `<span style="font-size:12px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
+        bannerContent = `<span style="font-size:15px;font-weight:700;color:#fff">${bs==='hold' ? 'En attente' : 'Indisponible'}</span>`;
       } else if (sel) {
-        bannerContent = `${checkSvg}<span style="font-size:12px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `${checkSvg}<span style="font-size:15px;font-weight:700;color:#fff">Sélectionné · ${name}</span>${price ? `<span style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       } else {
-        bannerContent = `<span style="font-size:12px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
+        bannerContent = `<span style="font-size:15px;font-weight:700;color:#fff">${name}</span>${price ? `<span style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);margin-left:auto">${price}</span>` : ''}`;
       }
 
       this._tooltip.innerHTML = `
         <div style="display:flex;align-items:stretch">
           ${[['Section',section||'—'],['Rangée',rowLabel||'—'],['Siège',colLabel||label||'—']].map(([k,v],i)=>`
-            ${i>0?'<div style="width:1px;background:#e5e7eb;margin:10px 0"></div>':''}
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 8px 12px">
-              <span style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">${k}</span>
-              <span style="font-size:18px;font-weight:700;color:#111827;margin-top:3px;white-space:nowrap;line-height:1">${v}</span>
+            ${i>0?'<div style="width:1px;background:#e5e7eb;margin:12px 0"></div>':''}
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:18px 12px 14px">
+              <span style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">${k}</span>
+              <span style="font-size:24px;font-weight:700;color:#111827;margin-top:4px;white-space:nowrap;line-height:1">${v}</span>
             </div>`).join('')}
         </div>
-        <div style="display:flex;align-items:center;gap:7px;margin:0 10px 10px;padding:9px 12px;background:${barBg};border-radius:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin:0 12px 12px;padding:11px 14px;background:${barBg};border-radius:10px">
           ${bannerContent}
         </div>`;
       const cr=this._root.getBoundingClientRect(), er=seatEl.getBoundingClientRect();
-      let left=er.left-cr.left+er.width/2-110;
+      let left=er.left-cr.left+er.width/2-150;
       let top=er.top-cr.top-this._tooltip.offsetHeight-8;
       if (top<4) top=er.top-cr.top+er.height+8;
-      this._tooltip.style.borderRadius = '14px';
-      this._tooltip.style.minWidth = '220px';
-      this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-224))+'px';
+      this._tooltip.style.borderRadius = '16px';
+      this._tooltip.style.minWidth = '300px';
+      this._tooltip.style.left = Math.max(4,Math.min(left,this._cw-304))+'px';
       this._tooltip.style.top  = top+'px';
       this._tooltip.style.visibility='visible';
       this._tooltip.style.opacity='1';
