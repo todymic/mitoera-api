@@ -118,6 +118,7 @@
       ENV_FILE=$3
       VAR_MOUNT=$4
       APP_SANDBOX_FLAG=$5
+      DB_HOST=$6
       API_PATH={{ api_path }}
 
       # Nettoyer un éventuel container blue orphelin
@@ -129,7 +130,7 @@
       PG_USER=$(grep '^POSTGRES_USER=' $ENV_FILE | cut -d= -f2 | tr -d '"')
       PG_PASS=$(grep '^POSTGRES_PASSWORD=' $ENV_FILE | cut -d= -f2 | tr -d '"')
       PG_DB=$(grep '^POSTGRES_DB=' $ENV_FILE | cut -d= -f2 | tr -d '"')
-      DB_URL="postgresql://${PG_USER}:${PG_PASS}@database:5432/${PG_DB}?serverVersion=16&charset=utf8"
+      DB_URL="postgresql://${PG_USER}:${PG_PASS}@${DB_HOST}:5432/${PG_DB}?serverVersion=16&charset=utf8"
 
       EXTRA_ENV=""
       if [ "$APP_SANDBOX_FLAG" = "true" ]; then
@@ -181,6 +182,7 @@
     {{ api_path }}/.env.prod
     {{ api_path }}/var
     false
+    database
   become: true
 
 - name: Blue-green deploy app-sandbox — zero downtime
@@ -191,6 +193,7 @@
     {{ api_path }}/.env.sandbox
     {{ api_path }}/var-sandbox
     true
+    database-sandbox
   become: true
 
 # Cron : pas de trafic direct, recreate simple
