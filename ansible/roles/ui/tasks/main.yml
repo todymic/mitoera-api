@@ -18,8 +18,8 @@
   become: true
   ignore_errors: true
 
-- name: Builder l'image UI sans cache
-  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache ui
+- name: Builder l'image UI
+  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build ui
   become: true
 
 # Blue-green UI : même principe que BO (Traefik pooling via labels partagés)

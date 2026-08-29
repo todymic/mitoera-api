@@ -18,8 +18,8 @@
   become: true
   ignore_errors: true
 
-- name: Builder l'image BO sans cache
-  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build --no-cache bo
+- name: Builder l'image BO
+  shell: docker compose -f {{ api_path }}/docker-compose.prod.yml build bo
   become: true
 
 # Blue-green BO : démarre le container blue avec les mêmes labels Traefik que l'ancien

@@ -89,6 +89,7 @@
       - database-sandbox
       - redis
       - mercure
+      - nginx
     state: present
     pull: missing
     recreate: auto
@@ -122,7 +123,9 @@
       NET_ALIAS=$7
       API_PATH={{ api_path }}
 
-      # Nettoyer un éventuel container blue orphelin
+      # Nettoyer les containers orphelins d'un deploy précédent échoué
+      docker stop ${OLD}-old >/dev/null 2>/dev/null || true
+      docker rm   ${OLD}-old >/dev/null 2>/dev/null || true
       docker stop $BLUE >/dev/null 2>/dev/null || true
       docker rm   $BLUE >/dev/null 2>/dev/null || true
 
