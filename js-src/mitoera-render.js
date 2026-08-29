@@ -1192,7 +1192,7 @@
           ${[['Section', section||'—'], ['Rangée', rowLabel||'—'], ['Siège', colLabel||label||'—']].map(([k,v],i) => `
             <div style="${i===0?'flex:1.4':'flex:1'};display:flex;flex-direction:column;align-items:center;padding:0 6px;min-width:0">
               <span style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
-              <span style="font-size:${i===0?'11':'15'}px;font-weight:800;color:#111827;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v}</span>
+              <span style="font-size:15px;font-weight:800;color:#111827;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v}</span>
             </div>`).join('<div style="width:1px;background:#f3f4f6;margin:3px 0;flex-shrink:0"></div>')}
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:${barBg};gap:10px">
