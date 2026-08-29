@@ -84,6 +84,25 @@ test('resume footer appears after seat selection', async ({ page }) => {
   await expect(page.locator('text=/siège/').first()).toBeVisible({ timeout: 5_000 });
 });
 
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+
+test('tooltip has white background (not transparent)', async ({ page }) => {
+  // test-widget.html embed le chart dans un iframe — on cible le frame render.html
+  await page.goto('https://api.mitoera.com/test-widget.html');
+
+  const frameLocator = page.frameLocator('iframe');
+  await frameLocator.locator('#chart.chart-ready').waitFor({ timeout: 30_000 });
+
+  // .mr-tooltip est créé avec background:#fff dès le chargement du chart.
+  // On vérifie que le CSS !important n'a pas remis transparent dessus.
+  const tooltip = frameLocator.locator('.mr-tooltip');
+  await expect(tooltip).toHaveCount(1);
+
+  const bg = await tooltip.evaluate(el => getComputedStyle(el).backgroundColor);
+  // Doit être blanc opaque — rgb(255, 255, 255) — pas transparent (rgba(0,0,0,0))
+  expect(bg).toBe('rgb(255, 255, 255)');
+});
+
 // ── Drag / pan ────────────────────────────────────────────────────────────────
 
 test('dragging pans the canvas', async ({ page }) => {
