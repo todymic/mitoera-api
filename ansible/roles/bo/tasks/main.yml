@@ -54,7 +54,7 @@
       else
         # Premier deploy : pas d'ancien container, démarrer directement
         docker run -d --name $BLUE --restart unless-stopped \
-          --network api_mitoera-network --network api_web \
+          --network api_mitoera-network --network web \
           $IMAGE
       fi
 
