@@ -85,7 +85,6 @@
     files:
       - docker-compose.prod.yml
     services:
-      - nginx
       - database
       - database-sandbox
       - redis
