@@ -167,11 +167,16 @@
       if docker inspect $OLD >/dev/null 2>/dev/null; then
         docker rename $OLD ${OLD}-old
         docker rename $BLUE $OLD
-        sleep 15
+        # Les deux containers ont le même alias réseau → nginx route vers les deux.
+        # On attend que nginx re-resolve (valid=10s) puis on tue l'ancien.
+        sleep 12
         docker stop ${OLD}-old || true
         docker rm   ${OLD}-old || true
+        # Flush cache DNS nginx pour éviter les 502 post-swap
+        docker exec mitoera-nginx nginx -s reload 2>/dev/null || true
       else
         docker rename $BLUE $OLD
+        docker exec mitoera-nginx nginx -s reload 2>/dev/null || true
       fi
       echo "Blue-green $OLD OK"
   become: true
