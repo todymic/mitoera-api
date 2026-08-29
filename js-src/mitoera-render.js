@@ -897,7 +897,7 @@
     }
     _hideTooltip() { this._tooltip.style.opacity='0'; this._tooltip.style.visibility='hidden'; }
 
-    _isMobile() { return window.innerWidth < 768; }
+    _isMobile() { return (this._cw || window.innerWidth) < 768; }
 
     _applyFilter(catId) {
       this._filterCatId = catId;
