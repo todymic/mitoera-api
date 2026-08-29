@@ -12,7 +12,6 @@ use App\Exception\UnauthorizedException;
 use App\Repository\ApiKeyRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 class ApiKeyService
 {
@@ -21,7 +20,6 @@ class ApiKeyService
     public function __construct(
         private ApiKeyRepository $apiKeyRepository,
         private EntityManagerInterface $em,
-        private SluggerInterface $slugger,
         private WorkspaceContext $workspaceContext,
         private bool $appSandbox = false,
     ) {
@@ -34,8 +32,8 @@ class ApiKeyService
     {
         $scope = ApiKeyScope::from($request->scope);
 
-        $keyId = $this->generateKeyId($scope);
-        $secret = $this->generateSecret($scope);
+        $keyId = $this->generateKeyId();
+        $secret = $this->generateSecret();
 
         $hasher = $this->hasherFactory->getPasswordHasher(ApiKey::class);
         $secretHash = $hasher->hash($secret);
@@ -142,22 +140,14 @@ class ApiKeyService
         return $this->appSandbox ? 'test' : 'live';
     }
 
-    private function generateKeyId(ApiKeyScope $scope): string
+    private function generateKeyId(): string
     {
-        $random = bin2hex(random_bytes(4));
-        return match ($scope) {
-            ApiKeyScope::PUBLIC     => 'pk_' . $this->envToken() . '_' . $random,
-            ApiKeyScope::BACKOFFICE => 'pk_' . $random,
-        };
+        return 'pk_' . $this->envToken() . '_' . bin2hex(random_bytes(4));
     }
 
-    private function generateSecret(ApiKeyScope $scope): string
+    private function generateSecret(): string
     {
-        $random = bin2hex(random_bytes(16));
-        return match ($scope) {
-            ApiKeyScope::PUBLIC     => 'sk_' . $this->envToken() . '_' . $random,
-            ApiKeyScope::BACKOFFICE => 'sk_' . $random,
-        };
+        return 'sk_' . bin2hex(random_bytes(16));
     }
 }
 
