@@ -1,4 +1,16 @@
 import { test, expect, Page, Locator } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Intercept mitoera-render.js to serve the local branch version
+async function useLocalRenderJs(page: Page) {
+  const localJs = fs.readFileSync(
+    path.join(__dirname, '../../public/mitoera-render.js'), 'utf-8'
+  );
+  await page.route('**/mitoera-render.js', route =>
+    route.fulfill({ contentType: 'application/javascript', body: localJs })
+  );
+}
 
 const SANDBOX_RENDER_URL = 'https://api.mitoera.com/sandbox-render'
   + '?key=pk_test_a435782e'
@@ -142,18 +154,20 @@ test('dragging pans the canvas', async ({ page }) => {
   expect(transformAfter).not.toBe(transformBefore);
 });
 
-// ── Mobile flow ───────────────────────────────────────────────────────────────
+// ── Mobile flow — bottom sheet (local branch) ─────────────────────────────────
 
 test.describe('mobile', () => {
   test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
 
   test('mobile: chart loads', async ({ page }) => {
+    await useLocalRenderJs(page);
     await page.goto(SANDBOX_RENDER_URL);
     await waitForChart(page);
     await expect(page.locator('#chart')).toBeVisible();
   });
 
   test('mobile: step 0 → 2 (section zoom) on section tap', async ({ page }) => {
+    await useLocalRenderJs(page);
     await page.goto(SANDBOX_RENDER_URL);
     await waitForChart(page);
 
@@ -170,24 +184,95 @@ test.describe('mobile', () => {
     expect(zoomAfter).toBeGreaterThan(zoomBefore);
   });
 
-  test('mobile: step 2 → tooltip de détail on seat tap', async ({ page }) => {
+  // Helper: tap first available seat in zoomed section via JS (bypasses viewport check)
+  async function tapFirstAvailableSeat(page: Page) {
+    return page.evaluate(() => {
+      const seat = document.querySelector('[data-sk][data-ps="enabled"]') as HTMLElement | null;
+      if (!seat) return false;
+      seat.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true }));
+      seat.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true, cancelable: true, isPrimary: true }));
+      return true;
+    });
+  }
+
+  test('mobile: step 2 → bottom sheet visible after seat tap', async ({ page }) => {
+    await useLocalRenderJs(page);
     await page.goto(SANDBOX_RENDER_URL);
     await waitForChart(page);
 
-    const seat = page.locator('[data-sk][data-ps="enabled"]').first();
-    if (await seat.count() === 0) test.skip();
+    if (await page.locator('[data-sk][data-ps="enabled"]').count() === 0) test.skip();
 
     // step 0 → 2 (section zoom)
     await page.locator('[data-section],[data-plancat]').first().tap();
     await page.waitForTimeout(700);
-    // step 2 → tooltip
-    await seat.tap();
+
+    // step 2 → select seat via JS (seat may be transformed off-screen for Playwright)
+    await tapFirstAvailableSeat(page);
     await page.waitForTimeout(500);
 
-    const tooltipVisible = await page.evaluate(() => {
-      const t = document.querySelector('.mr-tooltip') as HTMLElement | null;
-      return t ? t.style.visibility === 'visible' || t.style.opacity === '1' : false;
+    const debug = await page.evaluate(() => {
+      const r = (window as any).__renderer__;
+      const seat = document.querySelector('[data-sk][data-ps="enabled"]') as HTMLElement | null;
+      return {
+        hasSheet: !!r?._mobileSheet,
+        transform: r?._mobileSheet?.style.transform,
+        mobileStep: r?._mobileStep,
+        zoom: r?._zoom,
+        isMobile: r?._isMobile?.(),
+        selectedSize: r?._selected?.size,
+        selectedSeats: r?.getSelectedSeats?.()?.length,
+        seatKey: seat?.dataset?.sk,
+      };
     });
-    expect(tooltipVisible).toBe(true);
+    console.log('DEBUG sheet:', JSON.stringify(debug));
+
+    // transform may be 'translateY(0)' or 'translateY(0px)' depending on browser
+    const sheetVisible = debug.transform === 'translateY(0)' || debug.transform === 'translateY(0px)';
+    expect(sheetVisible).toBe(true);
+  });
+
+  test('mobile: bottom sheet shows Continuer button after selection', async ({ page }) => {
+    await useLocalRenderJs(page);
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+
+    if (await page.locator('[data-sk][data-ps="enabled"]').count() === 0) test.skip();
+
+    await page.locator('[data-section],[data-plancat]').first().tap();
+    await page.waitForTimeout(700);
+    await tapFirstAvailableSeat(page);
+    await page.waitForTimeout(500);
+
+    const hasCta = await page.evaluate(() => !!document.getElementById('_mm-cta'));
+    expect(hasCta).toBe(true);
+  });
+
+  test('mobile: remove button in sheet deselects seat', async ({ page }) => {
+    await useLocalRenderJs(page);
+    await page.goto(SANDBOX_RENDER_URL);
+    await waitForChart(page);
+
+    if (await page.locator('[data-sk][data-ps="enabled"]').count() === 0) test.skip();
+
+    await page.locator('[data-section],[data-plancat]').first().tap();
+    await page.waitForTimeout(700);
+    await tapFirstAvailableSeat(page);
+    await page.waitForTimeout(500);
+
+    // Click remove button (×) in the sheet via JS
+    await page.evaluate(() => {
+      const btn = document.querySelector('#_mm-cta')
+        ?.closest('div')?.parentElement
+        ?.querySelector('[data-sk]') as HTMLElement | null;
+      btn?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true }));
+    });
+    await page.waitForTimeout(400);
+
+    const sheetHidden = await page.evaluate(() => {
+      const r = (window as any).__renderer__;
+      const t = r?._mobileSheet?.style.transform ?? '';
+      return t === 'translateY(100%)' || t.includes('100%');
+    });
+    expect(sheetHidden).toBe(true);
   });
 });
