@@ -1136,91 +1136,108 @@
     }
 
     _buildMobileModal(root) {
-      // Backdrop
-      const overlay = css(el('div'), {
-        position:'absolute', inset:'0', zIndex:'200',
-        background:'rgba(0,0,0,0.35)',
-        opacity:'0', visibility:'hidden',
-        transition:'opacity 0.2s ease, visibility 0.2s ease',
-      });
-      // Sheet
+      // Persistent bottom sheet — no dark overlay
       const sheet = css(el('div'), {
         position:'absolute', bottom:'0', left:'0', right:'0',
-        background:'#fff', borderRadius:'20px 20px 0 0',
-        boxShadow:'0 -4px 32px rgba(0,0,0,0.18)',
+        background:'#fffaf3', borderRadius:'20px 20px 0 0',
+        boxShadow:'0 -8px 24px rgba(18,40,58,.10)',
+        border:'1px solid #e4ddd0',
+        borderBottom:'none',
         overflow:'hidden',
         transform:'translateY(100%)',
-        transition:'transform 0.25s cubic-bezier(0.32,0.72,0,1)',
-        pointerEvents:'auto',
+        transition:'transform 0.30s cubic-bezier(0.32,0.72,0,1)',
+        pointerEvents:'auto', zIndex:'200',
       });
-      // Handle bar
       const handle = css(el('div'), {
-        width:'36px', height:'4px', borderRadius:'2px',
-        background:'#d1d5db', margin:'12px auto 8px',
+        width:'34px', height:'4px', borderRadius:'3px',
+        background:'#e4ddd0', margin:'10px auto 4px',
       });
       sheet.appendChild(handle);
       const body = el('div');
       sheet.appendChild(body);
-      overlay.appendChild(sheet);
-      overlay.addEventListener('pointerdown', (e) => {
-        if (e.target === overlay) this._hideMobileModal();
+      root.appendChild(sheet);
+      this._mobileSheet = sheet;
+      this._mobileBody  = body;
+      // keep overlay ref as null (no dark backdrop)
+      this._mobileOverlay = null;
+    }
+
+    _refreshMobileSheet() {
+      if (!this._mobileSheet) return;
+      const seats = this.getSelectedSeats();
+      if (!seats.length) {
+        this._mobileSheet.style.transform = 'translateY(100%)';
+        return;
+      }
+      this._mobileSheet.style.transform = 'translateY(0)';
+
+      let total = 0;
+      const fmt = (n) => new Intl.NumberFormat('fr-MG').format(n);
+
+      const listHTML = seats.map(({seatKey, catId, catColor, catName}) => {
+        const cat = this._catMap[catId];
+        const price = cat?.price ?? 0;
+        total += price;
+        const currency = cat?.currency || 'MGA';
+        // parse seatKey to get block/row/seat info (format: SECTION-R-C)
+        const parts = seatKey.split('-');
+        const seatNum = parts[parts.length - 1] || '—';
+        const rowNum  = parts[parts.length - 2] || '—';
+        const block   = parts.slice(0, parts.length - 2).join('-') || seatKey;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #e4ddd0">
+          <span style="width:9px;height:9px;border-radius:3px;background:${catColor};flex-shrink:0;display:inline-block"></span>
+          <div style="flex:1;min-width:0">
+            <b style="display:block;font-size:12.5px;font-weight:700;color:#12283a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catName} · ${block}</b>
+            <span style="display:block;font-size:10px;color:#6b7280;letter-spacing:.04em;font-family:ui-monospace,monospace">RANGÉE ${rowNum} · SIÈGE ${seatNum}</span>
+          </div>
+          ${price ? `<span style="font-size:12px;font-weight:600;color:#12283a;flex-shrink:0;white-space:nowrap">Ar ${fmt(price)}</span>` : ''}
+          <button data-sk="${seatKey}" style="width:22px;height:22px;border-radius:50%;background:#f3efe6;border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;padding:0">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#12283a" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>`;
+      }).join('');
+
+      const totalStr = total ? `Ar ${fmt(total)}` : '';
+      const count = seats.length;
+
+      this._mobileBody.innerHTML = `
+        <div style="max-height:160px;overflow-y:auto;padding:0 16px 2px">${listHTML}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));gap:14px">
+          <div>
+            ${totalStr ? `<b style="display:block;font-size:15.5px;font-weight:800;color:#12283a">${totalStr}</b>` : ''}
+            <span style="display:block;font-size:9.5px;color:#6b7280;font-family:ui-monospace,monospace;letter-spacing:.04em">${count} place${count > 1 ? 's' : ''}</span>
+          </div>
+          <button id="_mm-cta" style="background:linear-gradient(120deg,#ef5b4e,#c8452e);color:#fff;border:none;border-radius:12px;padding:13px 22px;font-size:13.5px;font-weight:700;white-space:nowrap;box-shadow:0 8px 18px rgba(239,91,78,.30);cursor:pointer">Continuer</button>
+        </div>`;
+
+      // Remove buttons
+      this._mobileBody.querySelectorAll('[data-sk]').forEach(btn => {
+        btn.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          const key = btn.dataset.sk;
+          const seatEl = this._viewport?.querySelector?.(`[data-sk="${key}"]`);
+          // deselect via _onSeatClick (toggles)
+          if (this._selected.has(key)) this._onSeatClick(key, 'enabled', seatEl);
+        });
       });
-      root.appendChild(overlay);
-      this._mobileOverlay = overlay;
-      this._mobileSheet   = sheet;
-      this._mobileBody    = body;
+
+      // Continuer
+      this._mobileBody.querySelector('#_mm-cta')?.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        // emit checkout intent to parent (iframe) if available
+        try { window.parent.postMessage({ type: 'mitoera:checkout', seats: this.getSelectedSeats() }, '*'); } catch {}
+      });
     }
 
     _showMobileModal(seatEl, info) {
-      const {key, section, rowLabel, colLabel, label, catId, planStatus} = info;
-      const color = this._catColor(catId), name = this._catName(catId);
-      const cat   = this._catMap[catId];
-      const price = cat?.price != null
-        ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
-        : null;
-      const bs      = this._bookingStatus(key);
-      const sel     = this._selected.has(key);
-      const unavail = planStatus === 'disabled' || bs === 'booked' || bs === 'canceled' || bs === 'hold';
-
-      const barBg = unavail ? '#9ca3af' : color;
-      const statusLabel = unavail
-        ? (bs === 'hold' ? 'En attente' : 'Indisponible')
-        : name;
-
-      this._mobileBody.innerHTML = `
-        <div style="display:flex;padding:8px 8px 6px;gap:0">
-          ${[['Section', section||'—'], ['Rangée', rowLabel||'—'], ['Siège', colLabel||label||'—']].map(([k,v],i) => `
-            <div style="${i===0?'flex:1.4':'flex:1'};display:flex;flex-direction:column;align-items:center;padding:0 6px;min-width:0">
-              <span style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${k}</span>
-              <span style="font-size:15px;font-weight:800;color:#111827;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v}</span>
-            </div>`).join('<div style="width:1px;background:#f3f4f6;margin:3px 0;flex-shrink:0"></div>')}
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:${barBg};gap:10px">
-          <span style="font-size:14px;font-weight:700;color:#fff">${statusLabel}</span>
-          ${price && !unavail ? `<span style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap">${price}</span>` : ''}
-        </div>
-        <div style="display:flex;gap:8px;padding:8px 14px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))">
-          <button id="_mm-close" style="flex:1;padding:8px;border:none;border-radius:10px;background:#f3f4f6;font-size:13px;font-weight:600;color:#374151;cursor:pointer">Fermer</button>
-          ${!unavail ? `<button id="_mm-select" style="flex:2;padding:8px;border:none;border-radius:10px;background:${sel ? '#6b7280' : color};font-size:13px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-            ${sel ? '✕ Désélectionner' : '✓ Sélectionner'}
-          </button>` : ''}
-        </div>`;
-
-      this._mobileBody.querySelector('#_mm-close')?.addEventListener('click', () => this._hideMobileModal());
-      this._mobileBody.querySelector('#_mm-select')?.addEventListener('click', () => {
-        this._onSeatClick(key, planStatus, seatEl);
-        this._hideMobileModal();
-      });
-
-      this._mobileOverlay.style.visibility = 'visible';
-      this._mobileOverlay.style.opacity    = '1';
-      this._mobileSheet.style.transform    = 'translateY(0)';
+      // Select directly and refresh the bottom sheet
+      const {key, planStatus} = info;
+      this._onSeatClick(key, planStatus, seatEl);
+      this._refreshMobileSheet();
     }
 
     _hideMobileModal() {
-      this._mobileOverlay.style.opacity = '0';
       this._mobileSheet.style.transform = 'translateY(100%)';
-      setTimeout(() => { this._mobileOverlay.style.visibility = 'hidden'; }, 220);
     }
 
     _showMobileSectionLabel(section, catId, sectionEl) {
@@ -1523,6 +1540,7 @@
       this._updateLens();
       this._updateResume();
       if (this._onSelectionChange) this._onSelectionChange();
+      if (this._isMobile()) this._refreshMobileSheet();
       // Bounce animation via animate.css
       seatEl.classList.remove('animate__animated', 'animate__pulse');
       seatEl.style.setProperty('--animate-duration', '0.4s');
