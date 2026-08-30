@@ -40,6 +40,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $validated = false;
 
+    #[ORM\Column(type: 'string', nullable: true, unique: true)]
+    private ?string $emailVerificationToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailVerificationSentAt = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
@@ -169,5 +175,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function isValidated(): bool { return $this->validated; }
     public function setValidated(bool $validated): self { $this->validated = $validated; return $this; }
+
+    public function getEmailVerificationToken(): ?string { return $this->emailVerificationToken; }
+    public function setEmailVerificationToken(?string $token): self { $this->emailVerificationToken = $token; return $this; }
+
+    public function getEmailVerificationSentAt(): ?\DateTimeImmutable { return $this->emailVerificationSentAt; }
+    public function setEmailVerificationSentAt(?\DateTimeImmutable $d): self { $this->emailVerificationSentAt = $d; return $this; }
 }
 

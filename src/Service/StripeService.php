@@ -68,6 +68,13 @@ class StripeService
             throw new \InvalidArgumentException("Unknown plan: $planKey");
         }
 
+        // Tsena = pay-per-use: no Stripe subscription, just create customer + local subscription
+        if ($planKey === Subscription::PLAN_TSENA) {
+            $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
+            $this->activateTsena($workspace, $customerId);
+            return $successUrl;
+        }
+
         $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
         $priceId    = $this->planKeyToPriceId($planKey);
 
@@ -91,6 +98,75 @@ class StripeService
         ]);
 
         return $session->url;
+    }
+
+    /**
+     * Switch an existing Stripe subscription to a new plan (mora ↔ soa).
+     * For tsena, cancels the Stripe subscription and activates locally.
+     * Returns the checkout URL (for tsena: successUrl directly).
+     */
+    public function changePlan(
+        Workspace $workspace,
+        string    $planKey,
+        string    $successUrl,
+        string    $cancelUrl,
+    ): string {
+        if (!isset(Subscription::PLANS[$planKey])) {
+            throw new \InvalidArgumentException("Unknown plan: $planKey");
+        }
+
+        $sub = $this->subscriptionRepo->findByWorkspace($workspace);
+        if (!$sub) {
+            throw new \RuntimeException('No subscription found');
+        }
+
+        if ($sub->getPlan() === $planKey) {
+            return $successUrl;
+        }
+
+        // Switching TO tsena: cancel Stripe sub + activate locally
+        if ($planKey === Subscription::PLAN_TSENA) {
+            if ($sub->getStripeSubscriptionId()) {
+                $this->stripe->subscriptions->cancel($sub->getStripeSubscriptionId());
+            }
+            $this->activateTsena($workspace, $sub->getStripeCustomerId());
+            return $successUrl;
+        }
+
+        // Switching FROM tsena (no Stripe sub) OR between mora/soa
+        if (!$sub->getStripeSubscriptionId()) {
+            // Coming from tsena: need a full checkout
+            $user = $workspace->getOwner();
+            return $this->createCheckoutSession(
+                $workspace,
+                $planKey,
+                $user?->getEmail() ?? '',
+                $user?->getDisplayName() ?? '',
+                $successUrl,
+                $cancelUrl,
+            );
+        }
+
+        // mora ↔ soa: update Stripe subscription items
+        $stripeSub = $this->stripe->subscriptions->retrieve($sub->getStripeSubscriptionId());
+        $itemId    = $stripeSub->items->data[0]->id;
+        $priceId   = $this->planKeyToPriceId($planKey);
+
+        $this->stripe->subscriptions->update($sub->getStripeSubscriptionId(), [
+            'items'              => [['id' => $itemId, 'price' => $priceId]],
+            'proration_behavior' => 'create_prorations',
+            'metadata'           => ['planKey' => $planKey],
+        ]);
+
+        // Local update (webhook will also fire but this is immediate)
+        $planConfig = Subscription::PLANS[$planKey];
+        $sub->setPlan($planKey);
+        $sub->setAnnualSeatQuota($planConfig['annual_seat_quota']);
+        $sub->setSurplusPriceCents($planConfig['surplus_price_cents']);
+        $sub->touch();
+        $this->em->flush();
+
+        return $successUrl;
     }
 
     // ── Portal ────────────────────────────────────────────────────────────────
@@ -345,6 +421,35 @@ class StripeService
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function activateTsena(Workspace $workspace, ?string $customerId): void
+    {
+        $planConfig  = Subscription::PLANS[Subscription::PLAN_TSENA];
+        $now         = new \DateTimeImmutable();
+        $periodStart = new \DateTimeImmutable('first day of this month');
+        $periodEnd   = new \DateTimeImmutable('last day of this month');
+
+        $sub = $this->subscriptionRepo->findByWorkspace($workspace) ?? new Subscription();
+        $sub->setWorkspace($workspace);
+        $sub->setPlan(Subscription::PLAN_TSENA);
+        $sub->setStripeSubscriptionId(null);
+        $sub->setStripeCustomerId($customerId);
+        $sub->setStatus(Subscription::STATUS_ACTIVE);
+        $sub->setAnnualSeatQuota($planConfig['annual_seat_quota']);
+        $sub->setSurplusPriceCents($planConfig['surplus_price_cents']);
+        $sub->setPeriodStart($periodStart);
+        $sub->setPeriodEnd($periodEnd);
+        $sub->touch();
+        $this->em->persist($sub);
+        $this->em->flush();
+
+        if (!$this->usageRepo->findBySubscription($sub)) {
+            $usage = new SeatUsage();
+            $usage->setSubscription($sub);
+            $this->em->persist($usage);
+            $this->em->flush();
+        }
+    }
 
     private function planKeyToPriceId(string $planKey): string
     {

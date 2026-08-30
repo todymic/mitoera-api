@@ -187,6 +187,42 @@ class AuthController extends AbstractController
         }
     }
 
+    #[Route('/verify-email', methods: ['GET'])]
+    public function verifyEmail(Request $request): Response
+    {
+        $token  = $request->query->get('token', '');
+        $boUrl  = $this->getParameter('app.bo_url');
+
+        try {
+            $this->userService->verifyEmail($token);
+        } catch (\InvalidArgumentException $e) {
+            return new Response(
+                '<script>window.location="' . $boUrl . '/login?error=' . urlencode($e->getMessage()) . '"</script>',
+                Response::HTTP_FOUND
+            );
+        }
+
+        return new Response(
+            '<script>window.location="' . $boUrl . '/login?verified=1"</script>',
+            Response::HTTP_FOUND
+        );
+    }
+
+    #[Route('/resend-verification', methods: ['POST'])]
+    public function resendVerification(Request $request): JsonResponse
+    {
+        $data  = json_decode($request->getContent(), true) ?? [];
+        $email = $data['email'] ?? '';
+
+        $user = $this->userService->findByEmail($email);
+        if ($user && !$user->isValidated()) {
+            $this->userService->sendVerificationEmail($user);
+        }
+
+        // Always return success to avoid email enumeration
+        return $this->json(['message' => 'Si ce compte existe, un email de vérification a été envoyé.']);
+    }
+
     #[Route('/forgot-password', methods: ['POST'])]
     public function forgotPassword(Request $request): JsonResponse
     {

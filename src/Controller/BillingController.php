@@ -154,6 +154,41 @@ class BillingController extends AbstractController
     }
 
     /**
+     * POST /api/billing/change-plan
+     * Switch the workspace subscription to a different plan.
+     * Body: { planKey: 'mora'|'soa'|'tsena', successUrl, cancelUrl }
+     */
+    #[Route('/change-plan', methods: ['POST'])]
+    #[IsGranted('ROLE_BACKOFFICE')]
+    public function changePlan(Request $request): JsonResponse
+    {
+        $data       = json_decode($request->getContent(), true) ?? [];
+        $planKey    = $data['planKey']    ?? null;
+        $successUrl = $data['successUrl'] ?? null;
+        $cancelUrl  = $data['cancelUrl']  ?? null;
+
+        if (!$planKey || !$successUrl || !$cancelUrl) {
+            return $this->json(['error' => 'planKey, successUrl and cancelUrl are required'], 400);
+        }
+
+        if (!isset(Subscription::PLANS[$planKey])) {
+            return $this->json(['error' => 'Invalid plan.'], 400);
+        }
+
+        try {
+            $url = $this->stripe->changePlan(
+                workspace:  $this->currentWorkspace(),
+                planKey:    $planKey,
+                successUrl: $successUrl,
+                cancelUrl:  $cancelUrl,
+            );
+            return $this->json(['url' => $url]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * POST /api/billing/webhook
      * Stripe webhook — no auth, signature verified via STRIPE_WEBHOOK_SECRET.
      */

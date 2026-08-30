@@ -8,6 +8,9 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     env(APP_SANDBOX): 'false'
+    env(APP_URL): 'https://api.mitoera.com'
+    env(BO_URL): 'https://bo.mitoera.com'
+    app.bo_url: '%env(string:BO_URL)%'
 
 services:
     # default configuration for services in *this* file
@@ -96,6 +99,11 @@ services:
             $webhookSecret: '%env(string:STRIPE_WEBHOOK_SECRET)%'
             $priceMora:     '%env(string:STRIPE_PRICE_MORA)%'
             $priceSoa:      '%env(string:STRIPE_PRICE_SOA)%'
+
+    # UserService
+    App\Service\UserService:
+        arguments:
+            $appUrl: '%env(string:APP_URL)%'
 
     # QuotaService
     App\Service\QuotaService:

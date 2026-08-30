@@ -10,23 +10,38 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'subscriptions')]
 class Subscription
 {
-    public const PLAN_MORA = 'mora';
-    public const PLAN_SOA  = 'soa';
+    public const PLAN_MORA  = 'mora';
+    public const PLAN_SOA   = 'soa';
+    public const PLAN_TSENA = 'tsena';
 
     public const PLANS = [
         self::PLAN_MORA => [
-            'label'              => 'Mora',
-            'annual_seat_quota'  => 2500,
+            'label'               => 'Mora',
+            'annual_seat_quota'   => 2500,
             'surplus_price_cents' => 15,
-            'price_env_key'      => 'STRIPE_PRICE_MORA',
+            'price_env_key'       => 'STRIPE_PRICE_MORA',
+            'pay_per_use'         => false,
         ],
         self::PLAN_SOA => [
-            'label'              => 'Soa',
-            'annual_seat_quota'  => 5000,
+            'label'               => 'Soa',
+            'annual_seat_quota'   => 5000,
             'surplus_price_cents' => 15,
-            'price_env_key'      => 'STRIPE_PRICE_SOA',
+            'price_env_key'       => 'STRIPE_PRICE_SOA',
+            'pay_per_use'         => false,
+        ],
+        self::PLAN_TSENA => [
+            'label'               => 'Tsena',
+            'annual_seat_quota'   => 0,
+            'surplus_price_cents' => 20,
+            'price_env_key'       => null,
+            'pay_per_use'         => true,
         ],
     ];
+
+    public function isPayPerUse(): bool
+    {
+        return self::PLANS[$this->plan]['pay_per_use'] ?? false;
+    }
 
     public const STATUS_ACTIVE    = 'active';
     public const STATUS_TRIALING  = 'trialing';

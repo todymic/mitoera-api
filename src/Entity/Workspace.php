@@ -46,4 +46,14 @@ class Workspace
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 
     public function getMembers(): Collection { return $this->members; }
+
+    public function getOwner(): ?User
+    {
+        foreach ($this->members as $member) {
+            if ($member->getRole() === 'owner') {
+                return $member->getUser();
+            }
+        }
+        return null;
+    }
 }

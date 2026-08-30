@@ -39,10 +39,16 @@ services:
     container_name: mitoera-cron
     restart: unless-stopped
     command: >
-      sh -c "while true; do
-        php bin/console app:expire-holds --no-interaction;
-        sleep 60;
-      done"
+      sh -c "
+        # Install cron if missing
+        which cron || apt-get install -y cron -qq;
+        # Write crontab
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /etc/cron.d/mitoera;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /etc/cron.d/mitoera;
+        chmod 0644 /etc/cron.d/mitoera;
+        crontab /etc/cron.d/mitoera;
+        cron -f
+      "
     volumes:
       - ./var:/app/var
       - ./config/jwt:/app/config/jwt:ro
@@ -195,10 +201,14 @@ services:
     container_name: mitoera-cron-sandbox
     restart: unless-stopped
     command: >
-      sh -c "while true; do
-        php bin/console app:expire-holds --no-interaction;
-        sleep 60;
-      done"
+      sh -c "
+        which cron || apt-get install -y cron -qq;
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /etc/cron.d/mitoera-sandbox;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /etc/cron.d/mitoera-sandbox;
+        chmod 0644 /etc/cron.d/mitoera-sandbox;
+        crontab /etc/cron.d/mitoera-sandbox;
+        cron -f
+      "
     volumes:
       - ./var-sandbox:/app/var
       - ./config/jwt:/app/config/jwt:ro

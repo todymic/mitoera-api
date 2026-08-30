@@ -7,6 +7,8 @@ use App\Entity\User;
 use App\Repository\PasswordResetTokenRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UserService
@@ -17,6 +19,8 @@ class UserService
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
         private WorkspaceService $workspaceService,
+        private MailerInterface $mailer,
+        private string $appUrl,
     ) {
     }
 
@@ -47,6 +51,51 @@ class UserService
         // Créer un workspace par défaut pour ce nouvel utilisateur
         $workspaceName = trim(($firstName ?? '') . ' ' . ($lastName ?? '')) ?: explode('@', $email)[0];
         $this->workspaceService->createForUser($user, $workspaceName);
+
+        return $user;
+    }
+
+    public function sendVerificationEmail(User $user): void
+    {
+        $token = bin2hex(random_bytes(32));
+        $user->setEmailVerificationToken($token);
+        $user->setEmailVerificationSentAt(new \DateTimeImmutable());
+        $this->em->flush();
+
+        $verifyUrl = rtrim($this->appUrl, '/') . '/api/auth/verify-email?token=' . $token;
+
+        $email = (new Email())
+            ->to($user->getEmail())
+            ->subject('Confirmez votre adresse email — Mitoera')
+            ->html(sprintf(
+                '<p>Bonjour %s,</p>
+                <p>Cliquez sur le lien ci-dessous pour confirmer votre adresse email :</p>
+                <p><a href="%s">Confirmer mon email</a></p>
+                <p>Ce lien expire dans 24h.</p>',
+                htmlspecialchars($user->getDisplayName() ?? $user->getEmail()),
+                $verifyUrl
+            ));
+
+        $this->mailer->send($email);
+    }
+
+    public function verifyEmail(string $token): User
+    {
+        $user = $this->userRepository->findOneBy(['emailVerificationToken' => $token]);
+
+        if (!$user) {
+            throw new \InvalidArgumentException('Lien de vérification invalide ou expiré.');
+        }
+
+        $sentAt = $user->getEmailVerificationSentAt();
+        if (!$sentAt || $sentAt < new \DateTimeImmutable('-24 hours')) {
+            throw new \InvalidArgumentException('Ce lien a expiré. Veuillez demander un nouveau lien.');
+        }
+
+        $user->setValidated(true);
+        $user->setEmailVerificationToken(null);
+        $user->setEmailVerificationSentAt(null);
+        $this->em->flush();
 
         return $user;
     }
