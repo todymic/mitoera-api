@@ -113,4 +113,90 @@ class AuthControllerTest extends AbstractApiTestCase
 
         $this->assertResponseStatusCodeSame(400);
     }
+
+    // ─── GET /api/auth/verify-email ──────────────────────────────────────────
+
+    public function testVerifyEmailWithValidToken(): void
+    {
+        $user = $this->createUser('verify@test.com');
+        $user->setValidated(false);
+        $user->setEmailVerificationToken('validtoken123');
+        $user->setEmailVerificationSentAt(new \DateTimeImmutable('-1 hour'));
+        $this->em->flush();
+
+        $this->client->request('GET', '/api/auth/verify-email?token=validtoken123');
+
+        $this->assertResponseStatusCodeSame(302);
+        $this->assertStringContainsString('verified=1', $this->client->getResponse()->getContent());
+    }
+
+    public function testVerifyEmailWithInvalidToken(): void
+    {
+        $this->client->request('GET', '/api/auth/verify-email?token=nonexistent');
+
+        $this->assertResponseStatusCodeSame(302);
+        $body = $this->client->getResponse()->getContent();
+        $this->assertStringContainsString('error=', $body);
+    }
+
+    public function testVerifyEmailWithExpiredToken(): void
+    {
+        $user = $this->createUser('expired@test.com');
+        $user->setValidated(false);
+        $user->setEmailVerificationToken('expiredtoken123');
+        $user->setEmailVerificationSentAt(new \DateTimeImmutable('-25 hours'));
+        $this->em->flush();
+
+        $this->client->request('GET', '/api/auth/verify-email?token=expiredtoken123');
+
+        $this->assertResponseStatusCodeSame(302);
+        $body = $this->client->getResponse()->getContent();
+        $this->assertStringContainsString('error=', $body);
+    }
+
+    public function testVerifyEmailSetsUserAsValidated(): void
+    {
+        $user = $this->createUser('tovalidate@test.com');
+        $user->setValidated(false);
+        $user->setEmailVerificationToken('mytoken456');
+        $user->setEmailVerificationSentAt(new \DateTimeImmutable('-1 hour'));
+        $this->em->flush();
+
+        $this->client->request('GET', '/api/auth/verify-email?token=mytoken456');
+
+        $this->em->refresh($user);
+        $this->assertTrue($user->isValidated());
+        $this->assertNull($user->getEmailVerificationToken());
+    }
+
+    // ─── POST /api/auth/resend-verification ──────────────────────────────────
+
+    public function testResendVerificationAlwaysReturns200(): void
+    {
+        $this->jsonRequest('POST', '/api/auth/resend-verification', ['email' => 'nobody@test.com']);
+
+        $this->assertJsonStatus(200);
+    }
+
+    public function testResendVerificationForUnvalidatedUser(): void
+    {
+        $user = $this->createUser('unvalidated@test.com');
+        $user->setValidated(false);
+        $this->em->flush();
+
+        $this->jsonRequest('POST', '/api/auth/resend-verification', ['email' => 'unvalidated@test.com']);
+
+        $this->assertJsonStatus(200);
+        $this->assertStringContainsString('envoyé', $this->responseData()['message']);
+    }
+
+    public function testResendVerificationForValidatedUserStillReturns200(): void
+    {
+        $this->createUser('validated@test.com');
+
+        $this->jsonRequest('POST', '/api/auth/resend-verification', ['email' => 'validated@test.com']);
+
+        // Anti-enumeration: same 200 response regardless
+        $this->assertJsonStatus(200);
+    }
 }

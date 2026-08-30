@@ -26,6 +26,9 @@ class BillingControllerTest extends AbstractApiTestCase
         if (!array_key_exists('getInvoices', $methods)) {
             $mock->method('getInvoices')->willReturn([]);
         }
+        if (!array_key_exists('changePlan', $methods)) {
+            $mock->method('changePlan')->willReturn('https://checkout.stripe.com/fake-change');
+        }
 
         foreach ($methods as $method => $return) {
             if ($return instanceof \Exception) {
@@ -345,6 +348,98 @@ class BillingControllerTest extends AbstractApiTestCase
             'CONTENT_TYPE'          => 'application/json',
             'HTTP_Stripe-Signature' => 't=1234567890,v1=fake',
         ], json_encode(['id' => 'evt_handler_fail']));
+
+        $this->assertResponseStatusCodeSame(500);
+    }
+
+    // ── POST /api/billing/change-plan ─────────────────────────────────────────
+
+    public function testChangePlanRequiresAuth(): void
+    {
+        $this->jsonRequest('POST', '/api/billing/change-plan', [
+            'planKey'    => 'soa',
+            'successUrl' => 'https://app.test/ok',
+            'cancelUrl'  => 'https://app.test/cancel',
+        ]);
+        $this->assertResponseStatusCodeSame(401);
+    }
+
+    public function testChangePlanReturnsBadRequestWhenParamsMissing(): void
+    {
+        $this->registerStripe($this->mockStripe());
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+
+        $this->jsonRequest('POST', '/api/billing/change-plan', ['planKey' => 'soa'], $this->authHeaders($user, $workspace));
+
+        $this->assertResponseStatusCodeSame(400);
+        $this->assertStringContainsString('required', $this->responseData()['error']);
+    }
+
+    public function testChangePlanReturnsBadRequestForInvalidPlan(): void
+    {
+        $this->registerStripe($this->mockStripe());
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+
+        $this->jsonRequest('POST', '/api/billing/change-plan', [
+            'planKey'    => 'enterprise',
+            'successUrl' => 'https://app.test/ok',
+            'cancelUrl'  => 'https://app.test/cancel',
+        ], $this->authHeaders($user, $workspace));
+
+        $this->assertResponseStatusCodeSame(400);
+        $this->assertStringContainsString('Invalid plan', $this->responseData()['error']);
+    }
+
+    public function testChangePlanMoraToSoaReturnsUrl(): void
+    {
+        $this->registerStripe($this->mockStripe(['changePlan' => 'https://checkout.stripe.com/pay/cs_change_fake']));
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+        $this->createSubscription($workspace);
+
+        $this->jsonRequest('POST', '/api/billing/change-plan', [
+            'planKey'    => 'soa',
+            'successUrl' => 'https://app.test/ok',
+            'cancelUrl'  => 'https://app.test/cancel',
+        ], $this->authHeaders($user, $workspace));
+
+        $this->assertJsonStatus(200);
+        $this->assertArrayHasKey('url', $this->responseData());
+        $this->assertStringStartsWith('https://checkout.stripe.com', $this->responseData()['url']);
+    }
+
+    public function testChangePlanToTsenaReturnsSuccessUrl(): void
+    {
+        $this->registerStripe($this->mockStripe(['changePlan' => 'https://app.test/ok']));
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+        $this->createSubscription($workspace);
+
+        $this->jsonRequest('POST', '/api/billing/change-plan', [
+            'planKey'    => 'tsena',
+            'successUrl' => 'https://app.test/ok',
+            'cancelUrl'  => 'https://app.test/cancel',
+        ], $this->authHeaders($user, $workspace));
+
+        $this->assertJsonStatus(200);
+        $this->assertArrayHasKey('url', $this->responseData());
+    }
+
+    public function testChangePlanReturns500WhenStripeThrows(): void
+    {
+        $this->registerStripe($this->mockStripe([
+            'changePlan' => new \RuntimeException('Stripe error'),
+        ]));
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+
+        $this->jsonRequest('POST', '/api/billing/change-plan', [
+            'planKey'    => 'soa',
+            'successUrl' => 'https://app.test/ok',
+            'cancelUrl'  => 'https://app.test/cancel',
+        ], $this->authHeaders($user, $workspace));
 
         $this->assertResponseStatusCodeSame(500);
     }

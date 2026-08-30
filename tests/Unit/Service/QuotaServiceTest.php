@@ -267,6 +267,47 @@ class QuotaServiceTest extends TestCase
         $this->service->billMonthlySurplus($sub, $month);
     }
 
+    // ── Tsena (pay-per-use, quota = 0) ───────────────────────────────────────
+
+    public function testConsumeWithTsenaQuotaZeroAllSurplus(): void
+    {
+        // quota = 0 → every seat is immediately surplus, no threshold warning
+        $sub = $this->makeSub(quota: 0, surplusPrice: 20);
+
+        // After consuming 3 seats: used = 3, quota = 0 → surplus = 3 - 0 = 3
+        $usage = $this->makeUsage($sub, used: 3, billedCumul: 0);
+        $this->usageRepo->method('incrementAtomic')->willReturn($usage);
+
+        // No warning: quota=0 means the threshold (prev < quota) is never true
+        $this->logger->expects($this->never())->method('warning');
+
+        $this->service->consume($sub, 3);
+    }
+
+    public function testBillMonthlySurplusForTsenaBillsAllSeats(): void
+    {
+        // Tsena: quota = 0 → all 400 used seats are surplus
+        $sub   = $this->makeSub(quota: 0, surplusPrice: 20);
+        $month = new \DateTimeImmutable('2024-08-01');
+        $usage = $this->makeUsage($sub, used: 400, billedCumul: 0);
+
+        $this->surplusRepo->method('existsForMonth')->willReturn(false);
+        $this->usageRepo->method('findBySubscription')->willReturn($usage);
+        $this->em->method('wrapInTransaction')->willReturnCallback(fn(callable $fn) => $fn());
+
+        $persisted = [];
+        $this->em->method('persist')->willReturnCallback(function ($entity) use (&$persisted) {
+            $persisted[] = $entity;
+        });
+
+        $this->service->billMonthlySurplus($sub, $month);
+
+        $invoice = array_values(array_filter($persisted, fn($e) => $e instanceof SurplusInvoice))[0];
+        $this->assertSame(400, $invoice->getSeatsBilled());
+        $this->assertSame(400 * 20, $invoice->getAmountCents()); // 400 × €0.20 = €80 → 8000 cents
+        $this->assertSame(400, $usage->getSurplusBilledCumul());
+    }
+
     // ── resetForNewPeriod() ───────────────────────────────────────────────────
 
     public function testResetForNewPeriodZerosBothCounters(): void
