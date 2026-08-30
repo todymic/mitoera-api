@@ -87,17 +87,20 @@
       justify-content: center;
       pointer-events: none;
       z-index: 10;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.35s ease;
     }
-    #loader.loader-hidden { opacity: 0; }
-    .loader-ring {
-      width: 36px; height: 36px;
-      border: 3px solid #e5e7eb;
-      border-top-color: #6366f1;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
+    #loader.loader-hidden { opacity: 0; pointer-events: none; }
+    .loader-pulse {
+      width: 56px; height: 56px;
+      display: flex; align-items: center; justify-content: center;
+      animation: pulse-zoom 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-pulse svg { width: 56px; height: 56px; }
+    @keyframes pulse-zoom {
+      0%   { transform: scale(0.72); opacity: 0.5; }
+      50%  { transform: scale(1);    opacity: 1;   }
+      100% { transform: scale(0.72); opacity: 0.5; }
+    }
 
     #sandbox-watermark {
       display: none;
@@ -125,7 +128,17 @@
         <rect width="100%" height="100%" fill="url(#wm)"/>
       </svg>
     </div>
-    <div id="loader"><div class="loader-ring"></div></div>
+    <div id="loader">
+      <div class="loader-pulse">
+        <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Siège stylisé : dossier + assise -->
+          <rect x="10" y="10" width="36" height="24" rx="8" fill="#6366f1"/>
+          <rect x="6"  y="34" width="44" height="9"  rx="4" fill="#6366f1"/>
+          <rect x="6"  y="43" width="8"  height="6"  rx="2" fill="#818cf8"/>
+          <rect x="42" y="43" width="8"  height="6"  rx="2" fill="#818cf8"/>
+        </svg>
+      </div>
+    </div>
     <div id="chart"></div>
     <div id="stats-bar">
       <div id="stats-info"><span id="stats-empty">Aucun siège sélectionné</span></div>
