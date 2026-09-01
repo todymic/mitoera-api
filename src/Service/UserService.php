@@ -4,10 +4,12 @@ namespace App\Service;
 
 use App\Entity\PasswordResetToken;
 use App\Entity\User;
+use App\Message\SyncUserToSandboxMessage;
 use App\Repository\PasswordResetTokenRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -20,6 +22,7 @@ class UserService
         private UserPasswordHasherInterface $passwordHasher,
         private WorkspaceService $workspaceService,
         private MailerInterface $mailer,
+        private MessageBusInterface $messageBus,
         private string $appUrl,
     ) {
     }
@@ -48,9 +51,8 @@ class UserService
         $this->em->persist($user);
         $this->em->flush();
 
-        // Créer un workspace par défaut pour ce nouvel utilisateur
-        $workspaceName = trim(($firstName ?? '') . ' ' . ($lastName ?? '')) ?: explode('@', $email)[0];
-        $this->workspaceService->createForUser($user, $workspaceName);
+        $this->workspaceService->createForUser($user, 'locale');
+        $this->messageBus->dispatch(new SyncUserToSandboxMessage($user->getId()));
 
         return $user;
     }

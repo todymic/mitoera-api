@@ -11,6 +11,8 @@ parameters:
     env(APP_URL): 'https://api.mitoera.com'
     env(BO_URL): 'https://bo.mitoera.com'
     app.bo_url: '%env(string:BO_URL)%'
+    env(SANDBOX_INTERNAL_URL): ''
+    env(INTERNAL_SYNC_SECRET): 'change-me-in-prod'
 
 services:
     # default configuration for services in *this* file
@@ -104,6 +106,18 @@ services:
     App\Service\UserService:
         arguments:
             $appUrl: '%env(string:APP_URL)%'
+
+    # InternalSyncController — endpoint interne pour la réplication users prod→sandbox
+    App\Controller\InternalSyncController:
+        arguments:
+            $internalSyncSecret: '%env(string:INTERNAL_SYNC_SECRET)%'
+        tags: ['controller.service_arguments']
+
+    # SyncUserToSandboxHandler — envoie les users prod vers l'API sandbox interne
+    App\MessageHandler\SyncUserToSandboxHandler:
+        arguments:
+            $sandboxInternalUrl: '%env(string:SANDBOX_INTERNAL_URL)%'
+            $internalSyncSecret: '%env(string:INTERNAL_SYNC_SECRET)%'
 
     # QuotaService
     App\Service\QuotaService:
