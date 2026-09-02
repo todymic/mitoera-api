@@ -42,13 +42,14 @@ class SyncUserToSandboxHandler
         $ctx = stream_context_create([
             'http' => [
                 'method'  => 'POST',
-                'header'  => "Content-Type: application/json\r\nX-Internal-Secret: {$this->internalSyncSecret}\r\n",
+                'header'  => "Content-Type: application/json\r\nX-Internal-Secret: {$this->internalSyncSecret}\r\nX-Api-Mode: sandbox\r\n",
                 'content' => $payload,
                 'timeout' => 5,
                 'ignore_errors' => true,
             ],
         ]);
 
+        // SANDBOX_INTERNAL_URL doit pointer vers nginx (ex: http://mitoera-nginx), pas directement FPM
         $url = rtrim($this->sandboxInternalUrl, '/') . '/api/internal/users/sync';
 
         try {
