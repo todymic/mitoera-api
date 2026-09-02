@@ -37,10 +37,10 @@ class CategoryController extends AbstractController
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
-            required: ['name', 'key', 'color'],
+            required: ['name', 'color'],
             properties: [
                 new OA\Property(property: 'name', type: 'string', example: 'VIP'),
-                new OA\Property(property: 'key', type: 'string', example: 'vip'),
+                new OA\Property(property: 'key', type: 'integer', example: 1, nullable: true, description: 'Clé entière unique identifiant la catégorie. Doit être fournie par le client (ex : ID issu du système tiers). Si absente, une valeur est auto-générée (déconseillé pour les intégrations tierces).'),
                 new OA\Property(property: 'color', type: 'string', example: '#FFAA00'),
             ]
         )
@@ -53,9 +53,8 @@ class CategoryController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
             $data['name'] ?? '',
-            $data['key'] ?? '',
+            isset($data['key']) ? (int)$data['key'] : null,
             $data['color'] ?? '',
-            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->create($categoryRequest);
@@ -97,9 +96,8 @@ class CategoryController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
             $data['name'] ?? '',
-            $data['key'] ?? '',
+            isset($data['key']) ? (int)$data['key'] : null,
             $data['color'] ?? '',
-            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->update($id, $categoryRequest);

@@ -24,7 +24,7 @@ class CategoryService
 
     public function create(CategoryRequest $request): CategoryResponse
     {
-        $key = $this->resolveKey($request->key, $request->name);
+        $key = $request->key ?? $this->categoryRepository->nextKey();
 
         $existing = $this->categoryRepository->findByKey($key);
         if ($existing) {
@@ -48,7 +48,7 @@ class CategoryService
         return array_map(fn(Category $cat) => $this->toResponse($cat), $categories);
     }
 
-    public function findByKey(string $key): CategoryResponse
+    public function findByKey(int $key): CategoryResponse
     {
         $category = $this->categoryRepository->findByKey($key);
         if (!$category) {
@@ -61,15 +61,17 @@ class CategoryService
     public function createForChart(string $chartIdOrSlug, CategoryRequest $request): CategoryResponse
     {
         $chart = $this->findChartOrFail($chartIdOrSlug);
-        $existing = $this->categoryRepository->findByChartAndKey($chart, $request->key);
+        $key = $request->key ?? $this->categoryRepository->nextKeyForChart($chart);
+
+        $existing = $this->categoryRepository->findByChartAndKey($chart, $key);
         if ($existing) {
-            throw new DuplicateKeyException("Category with key '{$request->key}' already exists for this chart");
+            throw new DuplicateKeyException("Category with key '{$key}' already exists for this chart");
         }
 
         $category = new Category();
         $category->setChart($chart);
         $category->setName($request->name);
-        $category->setKey($request->key);
+        $category->setKey($key);
         $category->setColor($request->color);
 
         $this->em->persist($category);
@@ -85,7 +87,7 @@ class CategoryService
         return array_map(fn(Category $cat) => $this->toResponse($cat), $categories);
     }
 
-    public function findByChartAndKey(string $chartIdOrSlug, string $key): CategoryResponse
+    public function findByChartAndKey(string $chartIdOrSlug, int $key): CategoryResponse
     {
         $chart = $this->findChartOrFail($chartIdOrSlug);
         $category = $this->categoryRepository->findByChartAndKey($chart, $key);
@@ -112,15 +114,15 @@ class CategoryService
             throw new ResourceNotFoundException('Category not found');
         }
 
-        if ($request->key !== $category->getKey()) {
+        if ($request->key !== null && $request->key !== $category->getKey()) {
             $existing = $this->categoryRepository->findByKey($request->key);
             if ($existing) {
                 throw new DuplicateKeyException("Category with key '{$request->key}' already exists");
             }
+            $category->setKey($request->key);
         }
 
         $category->setName($request->name);
-        $category->setKey($request->key);
         $category->setColor($request->color);
 
         $this->em->persist($category);
@@ -129,22 +131,22 @@ class CategoryService
         return $this->toResponse($category);
     }
 
-    public function updateByKey(string $key, CategoryRequest $request): CategoryResponse
+    public function updateByKey(int $key, CategoryRequest $request): CategoryResponse
     {
         $category = $this->categoryRepository->findByKey($key);
         if (!$category) {
             throw new ResourceNotFoundException('Category not found');
         }
 
-        if ($request->key !== $category->getKey()) {
+        if ($request->key !== null && $request->key !== $category->getKey()) {
             $existing = $this->categoryRepository->findByKey($request->key);
             if ($existing) {
                 throw new DuplicateKeyException("Category with key '{$request->key}' already exists");
             }
+            $category->setKey($request->key);
         }
 
         $category->setName($request->name);
-        $category->setKey($request->key);
         $category->setColor($request->color);
 
         $this->em->persist($category);
@@ -153,7 +155,7 @@ class CategoryService
         return $this->toResponse($category);
     }
 
-    public function updateByChartAndKey(string $chartIdOrSlug, string $key, CategoryRequest $request): CategoryResponse
+    public function updateByChartAndKey(string $chartIdOrSlug, int $key, CategoryRequest $request): CategoryResponse
     {
         $chart = $this->findChartOrFail($chartIdOrSlug);
         $category = $this->categoryRepository->findByChartAndKey($chart, $key);
@@ -161,15 +163,15 @@ class CategoryService
             throw new ResourceNotFoundException('Category not found');
         }
 
-        if ($request->key !== $category->getKey()) {
+        if ($request->key !== null && $request->key !== $category->getKey()) {
             $existing = $this->categoryRepository->findByChartAndKey($chart, $request->key);
             if ($existing) {
                 throw new DuplicateKeyException("Category with key '{$request->key}' already exists for this chart");
             }
+            $category->setKey($request->key);
         }
 
         $category->setName($request->name);
-        $category->setKey($request->key);
         $category->setColor($request->color);
 
         $this->em->persist($category);
@@ -189,7 +191,7 @@ class CategoryService
         $this->em->flush();
     }
 
-    public function deleteByKey(string $key): void
+    public function deleteByKey(int $key): void
     {
         $category = $this->categoryRepository->findByKey($key);
         if (!$category) {
@@ -200,7 +202,7 @@ class CategoryService
         $this->em->flush();
     }
 
-    public function deleteByChartAndKey(string $chartIdOrSlug, string $key): void
+    public function deleteByChartAndKey(string $chartIdOrSlug, int $key): void
     {
         $chart = $this->findChartOrFail($chartIdOrSlug);
         $category = $this->categoryRepository->findByChartAndKey($chart, $key);
@@ -238,15 +240,4 @@ class CategoryService
 
         throw new ResourceNotFoundException('Chart not found');
     }
-
-    private function resolveKey(string $key, string $name): string
-    {
-        if ($key !== '') {
-            return $key;
-        }
-        // Auto-générer depuis le nom : minuscules, sans accents, tirets à la place des espaces
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
-        return trim($slug, '-') ?: 'category';
-    }
 }
-

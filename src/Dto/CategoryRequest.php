@@ -6,7 +6,7 @@ class CategoryRequest
 {
     public function __construct(
         public string $name,
-        public string $key,
+        public ?int $key,
         public string $color,
     ) {
     }

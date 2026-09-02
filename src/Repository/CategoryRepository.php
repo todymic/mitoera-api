@@ -22,7 +22,7 @@ class CategoryRepository extends ServiceEntityRepository
         parent::__construct($registry, Category::class);
     }
 
-    public function findByKey(string $key): ?Category
+    public function findByKey(int $key): ?Category
     {
         return $this->findOneBy(['key' => $key]);
     }
@@ -33,9 +33,32 @@ class CategoryRepository extends ServiceEntityRepository
         return $this->findBy(['chart' => $chart], ['name' => 'ASC']);
     }
 
-    public function findByChartAndKey(Chart $chart, string $key): ?Category
+    public function findByChartAndKey(Chart $chart, int $key): ?Category
     {
         return $this->findOneBy(['chart' => $chart, 'key' => $key]);
+    }
+
+    public function nextKeyForChart(Chart $chart): int
+    {
+        $max = $this->createQueryBuilder('c')
+            ->select('MAX(c.key)')
+            ->where('c.chart = :chart')
+            ->setParameter('chart', $chart)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ($max ?? 0) + 1;
+    }
+
+    public function nextKey(): int
+    {
+        $max = $this->createQueryBuilder('c')
+            ->select('MAX(c.key)')
+            ->where('c.chart IS NULL')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ($max ?? 0) + 1;
     }
 }
 

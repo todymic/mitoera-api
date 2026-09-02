@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 class InternalSyncController extends AbstractController
 {
@@ -48,6 +49,9 @@ class InternalSyncController extends AbstractController
         }
 
         $user = new User();
+        if (isset($data['id'])) {
+            $user->setId(Uuid::fromString($data['id']));
+        }
         $user->setEmail($data['email']);
         $user->setPassword($data['password'] ?? '');
         $user->setFirstName($data['firstName'] ?? null);

@@ -18,8 +18,8 @@ class Category
     #[ORM\Column(type: 'string', nullable: false)]
     private string $name;
 
-    #[ORM\Column(type: 'string', nullable: false)]
-    private string $key;
+    #[ORM\Column(type: 'integer', nullable: false)]
+    private int $key;
 
     #[ORM\Column(type: 'string', nullable: false)]
     private string $color;
@@ -53,12 +53,12 @@ class Category
         return $this;
     }
 
-    public function getKey(): string
+    public function getKey(): int
     {
         return $this->key;
     }
 
-    public function setKey(string $key): self
+    public function setKey(int $key): self
     {
         $this->key = $key;
         return $this;
