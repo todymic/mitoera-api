@@ -37,6 +37,7 @@ services:
   cron:
     image: mitoera/app:latest
     container_name: mitoera-cron
+    user: root
     restart: unless-stopped
     command: >
       sh -c "
@@ -203,6 +204,7 @@ services:
   cron-sandbox:
     image: mitoera/app:latest
     container_name: mitoera-cron-sandbox
+    user: root
     restart: unless-stopped
     command: >
       sh -c "
