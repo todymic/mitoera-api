@@ -40,14 +40,12 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        # Install cron if missing
-        which cron || apt-get install -y cron -qq;
-        # Write crontab
-        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /etc/cron.d/mitoera;
-        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /etc/cron.d/mitoera;
-        chmod 0644 /etc/cron.d/mitoera;
-        crontab /etc/cron.d/mitoera;
-        cron -f
+        apk add --no-cache dcron;
+        mkdir -p /var/spool/cron/crontabs;
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /var/spool/cron/crontabs/root;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /var/spool/cron/crontabs/root;
+        chmod 0600 /var/spool/cron/crontabs/root;
+        crond -f -l 8
       "
     volumes:
       - ./var:/app/var
@@ -208,12 +206,12 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        which cron || apt-get install -y cron -qq;
-        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /etc/cron.d/mitoera-sandbox;
-        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /etc/cron.d/mitoera-sandbox;
-        chmod 0644 /etc/cron.d/mitoera-sandbox;
-        crontab /etc/cron.d/mitoera-sandbox;
-        cron -f
+        apk add --no-cache dcron;
+        mkdir -p /var/spool/cron/crontabs;
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /var/spool/cron/crontabs/root;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /var/spool/cron/crontabs/root;
+        chmod 0600 /var/spool/cron/crontabs/root;
+        crond -f -l 8
       "
     volumes:
       - ./var-sandbox:/app/var
