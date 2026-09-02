@@ -53,14 +53,14 @@ class CategoryControllerTest extends AbstractApiTestCase
         $chartId   = $this->createChart($auth);
 
         $this->jsonRequest('POST', '/api/categories',
-            ['name' => 'VIP', 'key' => 'vip', 'color' => '#ff0000', 'chartId' => $chartId],
+            ['name' => 'VIP', 'key' => 42, 'color' => '#ff0000', 'chartId' => $chartId],
             $auth,
         );
 
         $this->assertResponseStatusCodeSame(201);
         $data = $this->responseData();
         $this->assertSame('VIP', $data['name']);
-        $this->assertSame('vip', $data['key']);
+        $this->assertSame(42, $data['key']);
         $this->assertSame('#ff0000', $data['color']);
     }
 

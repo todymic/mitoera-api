@@ -61,7 +61,7 @@ class ApiKeyControllerTest extends AbstractApiTestCase
         // En env de test (APP_ENV=test), les nouvelles clés publiques ont le préfixe pk_live_
         // (test != sandbox : seul APP_ENV=sandbox génère pk_test_)
         $this->assertMatchesRegularExpression('/^pk_(live|test|pub)_/', $data['keyId']);
-        $this->assertMatchesRegularExpression('/^sk_(live|test|pub)_/', $data['secret']);
+        $this->assertMatchesRegularExpression('/^sk_[0-9a-f]+$/', $data['secret']);
     }
 
     public function testCreatedKeyAppearsInList(): void

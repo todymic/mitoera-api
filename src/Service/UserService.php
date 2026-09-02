@@ -147,7 +147,28 @@ class UserService
         $this->em->persist($resetToken);
         $this->em->flush();
 
+        $this->sendPasswordResetEmail($user, $token);
+
         return $token;
+    }
+
+    private function sendPasswordResetEmail(User $user, string $token): void
+    {
+        $resetUrl = rtrim($this->appUrl, '/') . '/login?token=' . $token;
+
+        $email = (new Email())
+            ->to($user->getEmail())
+            ->subject('Réinitialisation de votre mot de passe — Mitoera')
+            ->html(sprintf(
+                '<p>Bonjour %s,</p>
+                <p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe :</p>
+                <p><a href="%s">Réinitialiser mon mot de passe</a></p>
+                <p>Ce lien est valable 1 heure. Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.</p>',
+                htmlspecialchars($user->getDisplayName() ?? $user->getEmail()),
+                htmlspecialchars($resetUrl)
+            ));
+
+        $this->mailer->send($email);
     }
 
     public function resetPassword(string $token, string $newPassword): void

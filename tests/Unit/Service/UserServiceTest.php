@@ -11,6 +11,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -22,6 +23,7 @@ class UserServiceTest extends TestCase
     private UserPasswordHasherInterface&MockObject $hasher;
     private WorkspaceService&MockObject           $workspaceService;
     private MailerInterface&MockObject            $mailer;
+    private MessageBusInterface&MockObject        $messageBus;
     private UserService                           $service;
 
     protected function setUp(): void
@@ -32,6 +34,7 @@ class UserServiceTest extends TestCase
         $this->hasher           = $this->createMock(UserPasswordHasherInterface::class);
         $this->workspaceService = $this->createMock(WorkspaceService::class);
         $this->mailer           = $this->createMock(MailerInterface::class);
+        $this->messageBus       = $this->createMock(MessageBusInterface::class);
 
         $this->service = new UserService(
             userRepository:       $this->userRepo,
@@ -40,6 +43,7 @@ class UserServiceTest extends TestCase
             passwordHasher:       $this->hasher,
             workspaceService:     $this->workspaceService,
             mailer:               $this->mailer,
+            messageBus:           $this->messageBus,
             appUrl:               'https://api.mitoera.com',
         );
     }
