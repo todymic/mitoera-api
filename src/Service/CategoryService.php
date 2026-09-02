@@ -24,14 +24,16 @@ class CategoryService
 
     public function create(CategoryRequest $request): CategoryResponse
     {
-        $existing = $this->categoryRepository->findByKey($request->key);
+        $key = $this->resolveKey($request->key, $request->name);
+
+        $existing = $this->categoryRepository->findByKey($key);
         if ($existing) {
-            throw new DuplicateKeyException("Category with key '{$request->key}' already exists");
+            throw new DuplicateKeyException("Category with key '{$key}' already exists");
         }
 
         $category = new Category();
         $category->setName($request->name);
-        $category->setKey($request->key);
+        $category->setKey($key);
         $category->setColor($request->color);
 
         $this->em->persist($category);
@@ -235,6 +237,16 @@ class CategoryService
         }
 
         throw new ResourceNotFoundException('Chart not found');
+    }
+
+    private function resolveKey(string $key, string $name): string
+    {
+        if ($key !== '') {
+            return $key;
+        }
+        // Auto-générer depuis le nom : minuscules, sans accents, tirets à la place des espaces
+        $slug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
+        return trim($slug, '-') ?: 'category';
     }
 }
 
