@@ -27,15 +27,10 @@ class CategoryRepository extends ServiceEntityRepository
         return $this->findOneBy(['key' => $key]);
     }
 
-    /** @return Category[] — catégories du chart + catégories globales (chart_id IS NULL) */
+    /** @return Category[] */
     public function findAllByChart(Chart $chart): array
     {
-        return $this->createQueryBuilder('c')
-            ->where('c.chart = :chart OR c.chart IS NULL')
-            ->setParameter('chart', $chart)
-            ->orderBy('c.name', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->findBy(['chart' => $chart], ['name' => 'ASC']);
     }
 
     public function findByChartAndKey(Chart $chart, int $key): ?Category
