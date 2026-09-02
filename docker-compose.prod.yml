@@ -37,16 +37,15 @@ services:
   cron:
     image: mitoera/app:latest
     container_name: mitoera-cron
-    user: root
     restart: unless-stopped
     command: >
       sh -c "
         apk add --no-cache dcron;
-        mkdir -p /var/spool/cron/crontabs;
-        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /var/spool/cron/crontabs/root;
-        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /var/spool/cron/crontabs/root;
-        chmod 0600 /var/spool/cron/crontabs/root;
-        crond -f -l 8
+        mkdir -p /tmp/crontabs;
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /tmp/cron.log 2>&1' > /tmp/crontabs/www-data;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /tmp/cron.log 2>&1' >> /tmp/crontabs/www-data;
+        chmod 0600 /tmp/crontabs/www-data;
+        crond -f -l 8 -c /tmp/crontabs
       "
     healthcheck:
       test: ["CMD-SHELL", "pgrep crond > /dev/null || exit 1"]
@@ -210,16 +209,15 @@ services:
   cron-sandbox:
     image: mitoera/app:latest
     container_name: mitoera-cron-sandbox
-    user: root
     restart: unless-stopped
     command: >
       sh -c "
         apk add --no-cache dcron;
-        mkdir -p /var/spool/cron/crontabs;
-        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /var/log/cron.log 2>&1' > /var/spool/cron/crontabs/root;
-        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /var/log/cron.log 2>&1' >> /var/spool/cron/crontabs/root;
-        chmod 0600 /var/spool/cron/crontabs/root;
-        crond -f -l 8
+        mkdir -p /tmp/crontabs;
+        echo '* * * * * cd /app && php bin/console app:expire-holds --no-interaction >> /tmp/cron.log 2>&1' > /tmp/crontabs/www-data;
+        echo '0 6 1 * * cd /app && php bin/console app:billing:surplus-monthly --no-interaction >> /tmp/cron.log 2>&1' >> /tmp/crontabs/www-data;
+        chmod 0600 /tmp/crontabs/www-data;
+        crond -f -l 8 -c /tmp/crontabs
       "
     healthcheck:
       test: ["CMD-SHELL", "pgrep crond > /dev/null || exit 1"]
