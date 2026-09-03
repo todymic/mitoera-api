@@ -61,6 +61,26 @@ class CategoryService
     public function createForChart(string $chartIdOrSlug, CategoryRequest $request): CategoryResponse
     {
         $chart = $this->findChartOrFail($chartIdOrSlug);
+
+        // Si une catégorie portant ce nom existe déjà dans ce chart → idempotent
+        $chartExisting = $this->categoryRepository->findByChartAndName($chart, $request->name);
+        if ($chartExisting) {
+            return $this->toResponse($chartExisting);
+        }
+
+        // Si une catégorie globale (chart_id IS NULL) porte le même nom → l'adopter
+        // plutôt que créer un doublon : mettre à jour chart_id et couleur.
+        $global = $this->categoryRepository->findGlobalByName($request->name);
+        if ($global) {
+            $global->setChart($chart);
+            if ($request->color !== '' && $global->getColor() === '') {
+                $global->setColor($request->color);
+            }
+            $this->em->flush();
+
+            return $this->toResponse($global);
+        }
+
         $key = $request->key ?? $this->categoryRepository->nextKeyForChart($chart);
 
         $existing = $this->categoryRepository->findByChartAndKey($chart, $key);

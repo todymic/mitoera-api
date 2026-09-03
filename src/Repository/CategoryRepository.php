@@ -38,6 +38,29 @@ class CategoryRepository extends ServiceEntityRepository
         return $this->findOneBy(['chart' => $chart, 'key' => $key]);
     }
 
+    public function findGlobalByName(string $name): ?Category
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.chart IS NULL')
+            ->andWhere('LOWER(c.name) = LOWER(:name)')
+            ->setParameter('name', $name)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function findByChartAndName(Chart $chart, string $name): ?Category
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.chart = :chart')
+            ->andWhere('LOWER(c.name) = LOWER(:name)')
+            ->setParameter('chart', $chart)
+            ->setParameter('name', $name)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function nextKeyForChart(Chart $chart): int
     {
         $max = $this->createQueryBuilder('c')
