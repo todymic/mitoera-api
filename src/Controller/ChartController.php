@@ -204,9 +204,8 @@ class ChartController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
             $data['name'] ?? $data['label'] ?? '',
-            $data['key'] ?? '',
+            isset($data['key']) && is_int($data['key']) ? $data['key'] : null,
             $data['color'] ?? '',
-            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->createForChart($chartKey, $categoryRequest);
@@ -231,9 +230,8 @@ class ChartController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
             $data['name'] ?? $data['label'] ?? '',
-            $data['key'] ?? $key,
+            isset($data['key']) && is_int($data['key']) ? $data['key'] : (is_numeric($key) ? (int)$key : null),
             $data['color'] ?? '',
-            (int)($data['price'] ?? 0),
         );
 
         $response = $this->categoryService->updateByChartAndKey($chartKey, $key, $categoryRequest);
