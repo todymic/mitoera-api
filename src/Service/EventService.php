@@ -66,9 +66,10 @@ $event->setWorkspace($this->workspaceContext->getWorkspace());
     public function findAll(): array
     {
         $workspace = $this->workspaceContext->getWorkspace();
-        $events = $workspace
-            ? $this->eventRepository->findByWorkspace($workspace)
-            : $this->eventRepository->findAll();
+        if (!$workspace) {
+            return [];
+        }
+        $events = $this->eventRepository->findByWorkspace($workspace);
         return array_map(fn(Event $event) => $this->toResponse($event), $events);
     }
 
