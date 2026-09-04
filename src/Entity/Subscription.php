@@ -10,31 +10,31 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'subscriptions')]
 class Subscription
 {
-    public const PLAN_MORA  = 'mora';
-    public const PLAN_SOA   = 'soa';
-    public const PLAN_TSENA = 'tsena';
+    public const PLAN_BASE = 'base';
+    public const PLAN_PLUS = 'plus';
+    public const PLAN_MAX  = 'max';
 
     public const PLANS = [
-        self::PLAN_MORA => [
-            'label'               => 'Mora',
-            'annual_seat_quota'   => 2500,
-            'surplus_price_cents' => 15,
-            'price_env_key'       => 'STRIPE_PRICE_MORA',
-            'pay_per_use'         => false,
-        ],
-        self::PLAN_SOA => [
-            'label'               => 'Soa',
-            'annual_seat_quota'   => 5000,
-            'surplus_price_cents' => 15,
-            'price_env_key'       => 'STRIPE_PRICE_SOA',
-            'pay_per_use'         => false,
-        ],
-        self::PLAN_TSENA => [
-            'label'               => 'Tsena',
+        self::PLAN_BASE => [
+            'label'               => 'Base',
             'annual_seat_quota'   => 0,
-            'surplus_price_cents' => 20,
+            'surplus_price_cents' => 15,
             'price_env_key'       => null,
             'pay_per_use'         => true,
+        ],
+        self::PLAN_PLUS => [
+            'label'               => 'Plus',
+            'annual_seat_quota'   => 2500,
+            'surplus_price_cents' => 15,
+            'price_env_key'       => 'STRIPE_PRICE_PLUS',
+            'pay_per_use'         => false,
+        ],
+        self::PLAN_MAX => [
+            'label'               => 'Max',
+            'annual_seat_quota'   => 5000,
+            'surplus_price_cents' => 15,
+            'price_env_key'       => 'STRIPE_PRICE_MAX',
+            'pay_per_use'         => false,
         ],
     ];
 

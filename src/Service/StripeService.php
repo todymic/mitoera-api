@@ -20,8 +20,8 @@ class StripeService
     public function __construct(
         private readonly string                      $secretKey,
         private readonly string                      $webhookSecret,
-        private readonly string                      $priceMora,
-        private readonly string                      $priceSoa,
+        private readonly string                      $pricePlus,
+        private readonly string                      $priceMax,
         private readonly EntityManagerInterface      $em,
         private readonly SubscriptionRepository      $subscriptionRepo,
         private readonly SubscriptionEventRepository $eventRepo,
@@ -68,10 +68,10 @@ class StripeService
             throw new \InvalidArgumentException("Unknown plan: $planKey");
         }
 
-        // Tsena = pay-per-use: no Stripe subscription, just create customer + local subscription
-        if ($planKey === Subscription::PLAN_TSENA) {
+        // Base = pay-per-use: no Stripe subscription, just create customer + local subscription
+        if ($planKey === Subscription::PLAN_BASE) {
             $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
-            $this->activateTsena($workspace, $customerId);
+            $this->activateBase($workspace, $customerId);
             return $successUrl;
         }
 
@@ -124,12 +124,12 @@ class StripeService
             return $successUrl;
         }
 
-        // Switching TO tsena: cancel Stripe sub + activate locally
-        if ($planKey === Subscription::PLAN_TSENA) {
+        // Switching TO base: cancel Stripe sub + activate locally
+        if ($planKey === Subscription::PLAN_BASE) {
             if ($sub->getStripeSubscriptionId()) {
                 $this->stripe->subscriptions->cancel($sub->getStripeSubscriptionId());
             }
-            $this->activateTsena($workspace, $sub->getStripeCustomerId());
+            $this->activateBase($workspace, $sub->getStripeCustomerId());
             return $successUrl;
         }
 
@@ -422,16 +422,16 @@ class StripeService
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function activateTsena(Workspace $workspace, ?string $customerId): void
+    private function activateBase(Workspace $workspace, ?string $customerId): void
     {
-        $planConfig  = Subscription::PLANS[Subscription::PLAN_TSENA];
+        $planConfig  = Subscription::PLANS[Subscription::PLAN_BASE];
         $now         = new \DateTimeImmutable();
         $periodStart = new \DateTimeImmutable('first day of this month');
         $periodEnd   = new \DateTimeImmutable('last day of this month');
 
         $sub = $this->subscriptionRepo->findByWorkspace($workspace) ?? new Subscription();
         $sub->setWorkspace($workspace);
-        $sub->setPlan(Subscription::PLAN_TSENA);
+        $sub->setPlan(Subscription::PLAN_BASE);
         $sub->setStripeSubscriptionId(null);
         $sub->setStripeCustomerId($customerId);
         $sub->setStatus(Subscription::STATUS_ACTIVE);
@@ -454,8 +454,8 @@ class StripeService
     private function planKeyToPriceId(string $planKey): string
     {
         return match ($planKey) {
-            Subscription::PLAN_MORA => $this->priceMora,
-            Subscription::PLAN_SOA  => $this->priceSoa,
+            Subscription::PLAN_PLUS => $this->pricePlus,
+            Subscription::PLAN_MAX  => $this->priceMax,
             default => throw new \InvalidArgumentException("Unknown plan: $planKey"),
         };
     }

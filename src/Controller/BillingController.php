@@ -94,7 +94,7 @@ class BillingController extends AbstractController
         }
 
         if (!isset(Subscription::PLANS[$planKey])) {
-            return $this->json(['error' => 'Invalid plan. Must be mora or soa.'], 400);
+            return $this->json(['error' => 'Invalid plan. Must be plus or max.'], 400);
         }
 
         $user      = $this->currentUser();
