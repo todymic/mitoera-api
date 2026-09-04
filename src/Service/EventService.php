@@ -17,6 +17,7 @@ use App\Repository\ChartRepository;
 use App\Repository\EventRepository;
 use App\Port\SeatPublisherPort;
 use App\Repository\EventSeatRepository;
+use App\Repository\SeatUsageLogRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 class EventService
@@ -29,6 +30,7 @@ class EventService
         private EntityManagerInterface $em,
         private SeatPublisherPort $publisher,
         private WorkspaceContext $workspaceContext,
+        private SeatUsageLogRepository $usageLogRepository,
         private string $mercurePublicUrl = '',
     ) {
     }
@@ -206,6 +208,12 @@ $event->setWorkspace($this->workspaceContext->getWorkspace());
 
         $changes = array_map(fn(string $k) => ['seatKey' => $k, 'status' => $status], $seatKeys);
         $this->publisher->publishSeatChanges($eventId, $changes);
+
+        if ($seatStatus === SeatStatus::BOOKED) {
+            foreach ($seatKeys as $seatKey) {
+                $this->usageLogRepository->insertIfNotExists($eventId, $seatKey, 'booked');
+            }
+        }
     }
 
     private function initializeSeats(Event $event, Chart $chart): void
