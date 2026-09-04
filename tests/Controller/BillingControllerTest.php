@@ -4,7 +4,6 @@ namespace App\Tests\Controller;
 
 use App\Entity\SeatUsage;
 use App\Entity\Subscription;
-use App\Service\QuotaService;
 use App\Service\StripeService;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -16,7 +15,6 @@ class BillingControllerTest extends AbstractApiTestCase
     {
         $mock = $this->createMock(StripeService::class);
 
-        // Sensible defaults for methods not explicitly configured
         if (!array_key_exists('createCheckoutSession', $methods)) {
             $mock->method('createCheckoutSession')->willReturn('https://checkout.stripe.com/fake');
         }
@@ -46,11 +44,11 @@ class BillingControllerTest extends AbstractApiTestCase
         static::getContainer()->set(StripeService::class, $mock);
     }
 
-    private function createSubscription(\App\Entity\Workspace $workspace): Subscription
+    private function createSubscription(\App\Entity\Workspace $workspace, string $plan = 'plus'): Subscription
     {
         $sub = new Subscription();
         $sub->setWorkspace($workspace);
-        $sub->setPlan('mora');
+        $sub->setPlan($plan);
         $sub->setStatus(Subscription::STATUS_ACTIVE);
         $sub->setAnnualSeatQuota(2500);
         $sub->setSurplusPriceCents(15);
@@ -89,8 +87,9 @@ class BillingControllerTest extends AbstractApiTestCase
         $data = $this->responseData();
 
         $this->assertArrayHasKey('plans', $data);
-        $this->assertArrayHasKey('mora', $data['plans']);
-        $this->assertArrayHasKey('soa', $data['plans']);
+        $this->assertArrayHasKey('base', $data['plans']);
+        $this->assertArrayHasKey('plus', $data['plans']);
+        $this->assertArrayHasKey('max', $data['plans']);
         $this->assertNull($data['subscription']);
     }
 
@@ -107,7 +106,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $data = $this->responseData();
 
         $this->assertNotNull($data['subscription']);
-        $this->assertSame('mora', $data['subscription']['plan']);
+        $this->assertSame('plus', $data['subscription']['plan']);
         $this->assertSame(Subscription::STATUS_ACTIVE, $data['subscription']['status']);
 
         $this->assertArrayHasKey('usage', $data);
@@ -122,7 +121,6 @@ class BillingControllerTest extends AbstractApiTestCase
         $this->registerStripe($this->mockStripe());
         $user = $this->createUser();
 
-        // Auth token without workspaceId → controller throws 500 (no workspace context)
         $this->jsonRequest('GET', '/api/billing/subscription', headers: $this->authHeaders($user));
 
         $this->assertResponseStatusCodeSame(500);
@@ -132,7 +130,7 @@ class BillingControllerTest extends AbstractApiTestCase
 
     public function testCheckoutRequiresAuth(): void
     {
-        $this->jsonRequest('POST', '/api/billing/checkout', ['planKey' => 'mora', 'successUrl' => 'https://example.com/ok', 'cancelUrl' => 'https://example.com/cancel']);
+        $this->jsonRequest('POST', '/api/billing/checkout', ['planKey' => 'plus', 'successUrl' => 'https://example.com/ok', 'cancelUrl' => 'https://example.com/cancel']);
         $this->assertResponseStatusCodeSame(401);
     }
 
@@ -142,7 +140,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $user      = $this->createUser();
         $workspace = $this->createWorkspaceForUser($user);
 
-        $this->jsonRequest('POST', '/api/billing/checkout', ['planKey' => 'mora'], $this->authHeaders($user, $workspace));
+        $this->jsonRequest('POST', '/api/billing/checkout', ['planKey' => 'plus'], $this->authHeaders($user, $workspace));
 
         $this->assertResponseStatusCodeSame(400);
         $this->assertStringContainsString('required', $this->responseData()['error']);
@@ -171,7 +169,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $workspace = $this->createWorkspaceForUser($user);
 
         $this->jsonRequest('POST', '/api/billing/checkout', [
-            'planKey'    => 'mora',
+            'planKey'    => 'plus',
             'successUrl' => 'https://app.test/success',
             'cancelUrl'  => 'https://app.test/cancel',
         ], $this->authHeaders($user, $workspace));
@@ -181,8 +179,30 @@ class BillingControllerTest extends AbstractApiTestCase
         $this->assertStringStartsWith('https://checkout.stripe.com', $this->responseData()['url']);
     }
 
+    /**
+     * Base plan: Stripe returns a setup-mode checkout URL (not success directly).
+     */
+    public function testCheckoutBasePlanReturnsSetupUrl(): void
+    {
+        $setupUrl = 'https://checkout.stripe.com/c/pay/cs_test_setup_fake';
+        $this->registerStripe($this->mockStripe(['createCheckoutSession' => $setupUrl]));
+        $user      = $this->createUser();
+        $workspace = $this->createWorkspaceForUser($user);
+
+        $this->jsonRequest('POST', '/api/billing/checkout', [
+            'planKey'    => 'base',
+            'successUrl' => 'https://app.test/subscription?success=1',
+            'cancelUrl'  => 'https://app.test/subscription',
+        ], $this->authHeaders($user, $workspace));
+
+        $this->assertJsonStatus(200);
+        $data = $this->responseData();
+        $this->assertArrayHasKey('url', $data);
+        $this->assertSame($setupUrl, $data['url']);
+    }
+
     #[DataProvider('planKeyProvider')]
-    public function testCheckoutBothPlansAccepted(string $planKey): void
+    public function testCheckoutAllPlansAccepted(string $planKey): void
     {
         $this->registerStripe($this->mockStripe());
         $user      = $this->createUser();
@@ -199,7 +219,7 @@ class BillingControllerTest extends AbstractApiTestCase
 
     public static function planKeyProvider(): array
     {
-        return [['mora'], ['soa']];
+        return [['base'], ['plus'], ['max']];
     }
 
     public function testCheckoutReturns500WhenStripeThrows(): void
@@ -211,7 +231,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $workspace = $this->createWorkspaceForUser($user);
 
         $this->jsonRequest('POST', '/api/billing/checkout', [
-            'planKey'    => 'mora',
+            'planKey'    => 'plus',
             'successUrl' => 'https://app.test/ok',
             'cancelUrl'  => 'https://app.test/cancel',
         ], $this->authHeaders($user, $workspace));
@@ -317,22 +337,37 @@ class BillingControllerTest extends AbstractApiTestCase
         $this->assertResponseStatusCodeSame(400);
     }
 
-    public function testWebhookReturns200OnValidEvent(): void
+    public function testWebhookReturns200OnValidSubscriptionEvent(): void
     {
-        $fakeEvent = $this->fakeStripeEvent('checkout.session.completed', 'evt_test_fake');
+        $fakeEvent = $this->fakeStripeEvent('checkout.session.completed', 'evt_sub_fake');
 
         $stripe = $this->mockStripe();
         $stripe->method('constructWebhookEvent')->willReturn($fakeEvent);
-        // handleWebhookEvent is void — no need to stub the return value
         $this->registerStripe($stripe);
 
         $this->client->request('POST', '/api/billing/webhook', [], [], [
             'CONTENT_TYPE'          => 'application/json',
             'HTTP_Stripe-Signature' => 't=1234567890,v1=fake',
-        ], json_encode(['type' => 'checkout.session.completed', 'id' => 'evt_test_fake']));
+        ], json_encode(['type' => 'checkout.session.completed', 'id' => 'evt_sub_fake']));
 
         $this->assertResponseStatusCodeSame(200);
         $this->assertSame('OK', $this->client->getResponse()->getContent());
+    }
+
+    public function testWebhookReturns200OnSetupCompletedEvent(): void
+    {
+        $fakeEvent = $this->fakeStripeEvent('checkout.session.completed', 'evt_setup_fake');
+
+        $stripe = $this->mockStripe();
+        $stripe->method('constructWebhookEvent')->willReturn($fakeEvent);
+        $this->registerStripe($stripe);
+
+        $this->client->request('POST', '/api/billing/webhook', [], [], [
+            'CONTENT_TYPE'          => 'application/json',
+            'HTTP_Stripe-Signature' => 't=1234567890,v1=fake',
+        ], json_encode(['type' => 'checkout.session.completed', 'id' => 'evt_setup_fake']));
+
+        $this->assertResponseStatusCodeSame(200);
     }
 
     public function testWebhookReturns500WhenHandlerThrows(): void
@@ -357,7 +392,7 @@ class BillingControllerTest extends AbstractApiTestCase
     public function testChangePlanRequiresAuth(): void
     {
         $this->jsonRequest('POST', '/api/billing/change-plan', [
-            'planKey'    => 'soa',
+            'planKey'    => 'max',
             'successUrl' => 'https://app.test/ok',
             'cancelUrl'  => 'https://app.test/cancel',
         ]);
@@ -370,7 +405,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $user      = $this->createUser();
         $workspace = $this->createWorkspaceForUser($user);
 
-        $this->jsonRequest('POST', '/api/billing/change-plan', ['planKey' => 'soa'], $this->authHeaders($user, $workspace));
+        $this->jsonRequest('POST', '/api/billing/change-plan', ['planKey' => 'max'], $this->authHeaders($user, $workspace));
 
         $this->assertResponseStatusCodeSame(400);
         $this->assertStringContainsString('required', $this->responseData()['error']);
@@ -392,15 +427,15 @@ class BillingControllerTest extends AbstractApiTestCase
         $this->assertStringContainsString('Invalid plan', $this->responseData()['error']);
     }
 
-    public function testChangePlanMoraToSoaReturnsUrl(): void
+    public function testChangePlanPlusToMaxReturnsUrl(): void
     {
         $this->registerStripe($this->mockStripe(['changePlan' => 'https://checkout.stripe.com/pay/cs_change_fake']));
         $user      = $this->createUser();
         $workspace = $this->createWorkspaceForUser($user);
-        $this->createSubscription($workspace);
+        $this->createSubscription($workspace, 'plus');
 
         $this->jsonRequest('POST', '/api/billing/change-plan', [
-            'planKey'    => 'soa',
+            'planKey'    => 'max',
             'successUrl' => 'https://app.test/ok',
             'cancelUrl'  => 'https://app.test/cancel',
         ], $this->authHeaders($user, $workspace));
@@ -410,15 +445,15 @@ class BillingControllerTest extends AbstractApiTestCase
         $this->assertStringStartsWith('https://checkout.stripe.com', $this->responseData()['url']);
     }
 
-    public function testChangePlanToTsenaReturnsSuccessUrl(): void
+    public function testChangePlanToBaseReturnsSuccessUrl(): void
     {
         $this->registerStripe($this->mockStripe(['changePlan' => 'https://app.test/ok']));
         $user      = $this->createUser();
         $workspace = $this->createWorkspaceForUser($user);
-        $this->createSubscription($workspace);
+        $this->createSubscription($workspace, 'plus');
 
         $this->jsonRequest('POST', '/api/billing/change-plan', [
-            'planKey'    => 'tsena',
+            'planKey'    => 'base',
             'successUrl' => 'https://app.test/ok',
             'cancelUrl'  => 'https://app.test/cancel',
         ], $this->authHeaders($user, $workspace));
@@ -436,7 +471,7 @@ class BillingControllerTest extends AbstractApiTestCase
         $workspace = $this->createWorkspaceForUser($user);
 
         $this->jsonRequest('POST', '/api/billing/change-plan', [
-            'planKey'    => 'soa',
+            'planKey'    => 'max',
             'successUrl' => 'https://app.test/ok',
             'cancelUrl'  => 'https://app.test/cancel',
         ], $this->authHeaders($user, $workspace));

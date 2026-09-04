@@ -68,11 +68,23 @@ class StripeService
             throw new \InvalidArgumentException("Unknown plan: $planKey");
         }
 
-        // Base = pay-per-use: no Stripe subscription, just create customer + local subscription
+        // Base = pay-per-use: collect card via Stripe Checkout (setup mode), activate on webhook
         if ($planKey === Subscription::PLAN_BASE) {
             $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
-            $this->activateBase($workspace, $customerId);
-            return $successUrl;
+
+            $session = $this->stripe->checkout->sessions->create([
+                'customer'             => $customerId,
+                'mode'                 => 'setup',
+                'payment_method_types' => ['card'],
+                'metadata'             => [
+                    'workspaceId' => $workspace->getId()->toRfc4122(),
+                    'planKey'     => Subscription::PLAN_BASE,
+                ],
+                'success_url' => $successUrl,
+                'cancel_url'  => $cancelUrl,
+            ]);
+
+            return $session->url;
         }
 
         $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
@@ -264,6 +276,11 @@ class StripeService
 
     private function onCheckoutCompleted(\Stripe\Session $session): void
     {
+        if ($session->mode === 'setup') {
+            $this->onSetupCheckoutCompleted($session);
+            return;
+        }
+
         if ($session->mode !== 'subscription') {
             return;
         }
@@ -315,6 +332,37 @@ class StripeService
             $this->em->persist($usage);
             $this->em->flush();
         }
+    }
+
+    private function onSetupCheckoutCompleted(\Stripe\Session $session): void
+    {
+        $workspaceId = $session->metadata['workspaceId'] ?? null;
+        $planKey     = $session->metadata['planKey'] ?? null;
+
+        if (!$workspaceId || $planKey !== Subscription::PLAN_BASE) {
+            $this->logger->warning('checkout.session.completed (setup): missing or unexpected metadata', [
+                'workspaceId' => $workspaceId,
+                'planKey'     => $planKey,
+            ]);
+            return;
+        }
+
+        $customerId  = is_string($session->customer) ? $session->customer : $session->customer->id;
+        $setupIntent = $this->stripe->setupIntents->retrieve(
+            is_string($session->setup_intent) ? $session->setup_intent : $session->setup_intent->id
+        );
+
+        $paymentMethodId = is_string($setupIntent->payment_method)
+            ? $setupIntent->payment_method
+            : $setupIntent->payment_method->id;
+
+        // Set as default payment method for future invoices
+        $this->stripe->customers->update($customerId, [
+            'invoice_settings' => ['default_payment_method' => $paymentMethodId],
+        ]);
+
+        $workspace = $this->em->getReference(Workspace::class, $workspaceId);
+        $this->activateBase($workspace, $customerId);
     }
 
     private function onSubscriptionUpdated(\Stripe\Subscription $stripeSub): void

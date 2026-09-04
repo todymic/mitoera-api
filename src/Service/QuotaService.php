@@ -3,7 +3,6 @@
 namespace App\Service;
 
 use App\Entity\Subscription;
-use App\Entity\SeatUsage;
 use App\Entity\SurplusInvoice;
 use App\Repository\SeatUsageRepository;
 use App\Repository\SurplusInvoiceRepository;
@@ -88,26 +87,44 @@ class QuotaService
             'amount_cents' => $amountCents,
         ]);
 
-        // Create a Stripe invoice item (added to the next invoice automatically)
+        // Create a Stripe charge for this month's surplus
         $stripeItemId = null;
-        if ($sub->getStripeCustomerId() && $sub->getStripeSubscriptionId()) {
+        if ($sub->getStripeCustomerId()) {
             try {
-                $stripe = new StripeClient($this->stripeSecretKey);
-                $item   = $stripe->invoiceItems->create([
-                    'customer'     => $sub->getStripeCustomerId(),
-                    'subscription' => $sub->getStripeSubscriptionId(),
-                    'amount'       => $amountCents,
-                    'currency'     => 'eur',
-                    'description'  => sprintf(
-                        '%d sièges surplus — %s',
-                        $surplusToBill,
-                        $normalizedMonth->format('F Y')
-                    ),
-                ]);
-                $stripeItemId = $item->id;
+                $stripe      = new StripeClient($this->stripeSecretKey);
+                $description = sprintf('%d sièges surplus — %s', $surplusToBill, $normalizedMonth->format('F Y'));
+
+                if ($sub->getStripeSubscriptionId()) {
+                    // Plus/Max: add invoice item to the next recurring Stripe invoice
+                    $item         = $stripe->invoiceItems->create([
+                        'customer'     => $sub->getStripeCustomerId(),
+                        'subscription' => $sub->getStripeSubscriptionId(),
+                        'amount'       => $amountCents,
+                        'currency'     => 'eur',
+                        'description'  => $description,
+                    ]);
+                    $stripeItemId = $item->id;
+                } else {
+                    // Base: create a standalone invoice, finalize and charge immediately
+                    $stripe->invoiceItems->create([
+                        'customer'    => $sub->getStripeCustomerId(),
+                        'amount'      => $amountCents,
+                        'currency'    => 'eur',
+                        'description' => $description,
+                    ]);
+                    $invoice = $stripe->invoices->create([
+                        'customer'          => $sub->getStripeCustomerId(),
+                        'auto_advance'      => true,
+                        'collection_method' => 'charge_automatically',
+                    ]);
+                    $stripe->invoices->finalizeInvoice($invoice->id);
+                    $stripe->invoices->pay($invoice->id);
+                    $stripeItemId = $invoice->id;
+                }
             } catch (\Exception $e) {
-                $this->logger->error('Stripe invoice item creation failed', [
+                $this->logger->error('Stripe billing failed', [
                     'subscription' => $sub->getId(),
+                    'plan'         => $sub->getPlan(),
                     'error'        => $e->getMessage(),
                 ]);
                 throw $e;
