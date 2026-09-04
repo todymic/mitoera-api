@@ -4,22 +4,26 @@ namespace App\Service;
 
 use App\Dto\BookResponse;
 use App\Dto\HoldResponse;
+use App\Dto\SeatConflictDetail;
+use App\Entity\Event;
 use App\Entity\EventSeat;
 use App\Entity\SeatStatus;
 use App\Exception\ResourceNotFoundException;
 use App\Exception\SeatNotAvailableException;
+use App\Port\SeatPublisherPort;
 use App\Repository\AppSettingRepository;
 use App\Repository\EventRepository;
 use App\Repository\EventSeatRepository;
 use App\Repository\SeatUsageLogRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Port\SeatPublisherPort;
+use InvalidArgumentException;
 use Predis\Client;
 use Symfony\Component\Uid\Uuid;
 
 class BookingService
 {
-    private Client $redis;
+    private object $redis;
 
     public function __construct(
         private EventSeatRepository $eventSeatRepository,
@@ -54,6 +58,69 @@ class BookingService
         $this->publisher->publishSeatChanges((string) $eventId, $changes);
     }
 
+    /**
+     * Crée les EventSeat manquants (plan mis à jour après liaison) et retourne la liste complète.
+     *
+     * @param EventSeat[] $seats
+     * @return EventSeat[]
+     */
+    private function autoCreateMissingSeats(Event $event, array $seatKeys, array $seats): array
+    {
+        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
+        foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
+            $seat = new EventSeat();
+            $seat->setEvent($event);
+            $seat->setSeatKey($missingKey);
+            $seat->setStatus(SeatStatus::AVAILABLE);
+            $this->em->persist($seat);
+            $seats[] = $seat;
+        }
+        return $seats;
+    }
+
+    /**
+     * Vérifie que tous les sièges sont disponibles pour un hold.
+     * Lève SeatNotAvailableException si un siège est BOOKED, CANCELED, ou déjà HOLD par un autre token.
+     *
+     * @param EventSeat[] $seats
+     */
+    private function assertSeatsAvailableForHold(array $seats, string $holdToken): void
+    {
+        $conflicts = [];
+        foreach ($seats as $seat) {
+            $status = $seat->getStatus();
+            if ($status === SeatStatus::BOOKED || $status === SeatStatus::CANCELED) {
+                $conflicts[] = new SeatConflictDetail($seat->getSeatKey(), $status->value);
+            } elseif ($status === SeatStatus::HOLD && $seat->getHoldToken() !== $holdToken) {
+                $conflicts[] = new SeatConflictDetail($seat->getSeatKey(), $status->value);
+            }
+        }
+        if ($conflicts !== []) {
+            throw new SeatNotAvailableException($conflicts);
+        }
+    }
+
+    /**
+     * Vérifie que tous les sièges sont en HOLD avec le bon token pour pouvoir être bookés.
+     * Lève SeatNotAvailableException sinon.
+     *
+     * @param EventSeat[] $seats
+     */
+    private function assertSeatsHeldByToken(array $seats, string $holdToken): void
+    {
+        $conflicts = [];
+        foreach ($seats as $seat) {
+            $status = $seat->getStatus();
+            $isHeldByUs = $status === SeatStatus::HOLD && $seat->getHoldToken() === $holdToken;
+            if (!$isHeldByUs) {
+                $conflicts[] = new SeatConflictDetail($seat->getSeatKey(), $status->value);
+            }
+        }
+        if ($conflicts !== []) {
+            throw new SeatNotAvailableException($conflicts);
+        }
+    }
+
     public function holdSeats(Uuid $eventId, array $seatKeys, string $holdToken): HoldResponse
     {
         $seatKeys = array_values(array_unique($seatKeys));
@@ -64,21 +131,13 @@ class BookingService
         }
 
         $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($eventId, $seatKeys);
+        $seats = $this->autoCreateMissingSeats($event, $seatKeys, $seats);
 
-        // Auto-create missing EventSeat rows (plan may have been updated after event was linked)
-        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
-        foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
-            $seat = new EventSeat();
-            $seat->setEvent($event);
-            $seat->setSeatKey($missingKey);
-            $seat->setStatus(SeatStatus::AVAILABLE);
-            $this->em->persist($seat);
-            $seats[] = $seat;
-        }
+        $this->assertSeatsAvailableForHold($seats, $holdToken);
 
         $holdDurationMinutes = (int) $this->settingRepository->get('default_hold_duration_minutes', '10');
         $holdDurationSeconds = $holdDurationMinutes * 60;
-        $expiresAt = new \DateTimeImmutable("+$holdDurationMinutes minutes");
+        $expiresAt = new DateTimeImmutable("+$holdDurationMinutes minutes");
 
         $pipe = $this->redis->pipeline();
         foreach ($seatKeys as $seatKey) {
@@ -96,7 +155,6 @@ class BookingService
         $this->em->flush();
         $this->publishSeatChanges($eventId, $seats);
 
-        // Audit : comptabilise chaque siège la première fois qu'il est hold
         foreach ($seatKeys as $seatKey) {
             $this->usageLogRepository->insertIfNotExists($eventId->toRfc4122(), $seatKey, 'hold');
         }
@@ -114,15 +172,9 @@ class BookingService
         }
 
         $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($eventId, $seatKeys);
-        $existingKeys = array_map(fn(EventSeat $s) => $s->getSeatKey(), $seats);
-        foreach (array_diff($seatKeys, $existingKeys) as $missingKey) {
-            $seat = new EventSeat();
-            $seat->setEvent($event);
-            $seat->setSeatKey($missingKey);
-            $seat->setStatus(SeatStatus::AVAILABLE);
-            $this->em->persist($seat);
-            $seats[] = $seat;
-        }
+        $seats = $this->autoCreateMissingSeats($event, $seatKeys, $seats);
+
+        $this->assertSeatsHeldByToken($seats, $holdToken);
 
         foreach ($seats as $seat) {
             $seat->setStatus(SeatStatus::BOOKED);
@@ -133,8 +185,6 @@ class BookingService
         $this->em->flush();
         $this->publishSeatChanges($eventId, $seats);
 
-        // Audit : comptabilise chaque siège la première fois qu'il est booked
-        // (INSERT IGNORE : si déjà compté au hold, ne compte pas une deuxième fois)
         foreach ($seatKeys as $seatKey) {
             $this->usageLogRepository->insertIfNotExists($eventId->toRfc4122(), $seatKey, 'booked');
         }
@@ -146,7 +196,7 @@ class BookingService
         $pipe->del("session_seats:$holdToken");
         $pipe->execute();
 
-        return new BookResponse($seatKeys, $eventId->toRfc4122(), new \DateTimeImmutable());
+        return new BookResponse($seatKeys, $eventId->toRfc4122(), new DateTimeImmutable());
     }
 
     public function releaseSeats(Uuid $eventId, array $seatKeys, string $holdToken): void
@@ -179,7 +229,7 @@ class BookingService
         $result = [];
         foreach ($seats as $seat) {
             $result[$seat->getSeatKey()] = [
-                'status' => $seat->getStatus()->value,
+                'status'    => $seat->getStatus()->value,
                 'holdToken' => $seat->getHoldToken(),
             ];
         }
@@ -193,7 +243,7 @@ class BookingService
         $result = [];
         foreach ($seats as $seat) {
             $result[$seat->getSeatKey()] = [
-                'status' => $seat->getStatus()->value,
+                'status'    => $seat->getStatus()->value,
                 'holdToken' => $seat->getHoldToken(),
             ];
         }
@@ -202,19 +252,16 @@ class BookingService
 
     public function changeStatus(Uuid $eventId, array $seatKeys, SeatStatus $newStatus): void
     {
-        // Deduplicate
         $seatKeys = array_unique($seatKeys);
         if (empty($seatKeys)) {
-            throw new \InvalidArgumentException('Seat keys list is empty');
+            throw new InvalidArgumentException('Seat keys list is empty');
         }
 
-        // Verify event exists
         $event = $this->eventRepository->find($eventId);
         if (!$event) {
             throw new ResourceNotFoundException('Event not found');
         }
 
-        // Change status
         $seats = $this->eventSeatRepository->findByEventIdAndSeatKeyIn($eventId, $seatKeys);
 
         foreach ($seats as $seat) {
@@ -228,15 +275,12 @@ class BookingService
         $this->em->flush();
         $this->publishSeatChanges($eventId, $seats);
 
-        // Clean Redis if releasing
         if ($newStatus !== SeatStatus::HOLD) {
             $pipe = $this->redis->pipeline();
             foreach ($seatKeys as $seatKey) {
-                $redisKey = "hold:$eventId:$seatKey";
-                $pipe->del($redisKey);
+                $pipe->del("hold:$eventId:$seatKey");
             }
             $pipe->execute();
         }
     }
 }
-
