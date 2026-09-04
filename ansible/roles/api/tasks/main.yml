@@ -59,7 +59,7 @@
   copy:
     src: "{{ playbook_dir }}/../.env.sandbox.secret"
     dest: "{{ api_path }}/.env.sandbox"
-    mode: "0600"
+    mode: "0644"
   become: false
   ignore_errors: true
 
