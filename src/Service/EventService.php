@@ -65,7 +65,11 @@ class EventService
         }
 
         $this->em->persist($event);
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+            throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
+        }
 
         return $this->toResponse($event);
     }

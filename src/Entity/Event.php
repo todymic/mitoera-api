@@ -10,6 +10,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: EventRepository::class)]
 #[ORM\Table(name: 'events')]
+#[ORM\UniqueConstraint(name: 'uniq_event_identifier_workspace', columns: ['identifier', 'workspace_id'])]
 class Event
 {
     #[ORM\Id]
@@ -19,7 +20,7 @@ class Event
     #[ORM\Column(type: 'string', nullable: false)]
     private string $title;
 
-    #[ORM\Column(type: 'string', unique: true, nullable: false)]
+    #[ORM\Column(type: 'string', nullable: false)]
     private string $identifier;
 
     #[ORM\ManyToOne(targetEntity: Chart::class)]
