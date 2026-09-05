@@ -140,5 +140,15 @@ class EventRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /** @return \App\Entity\Event[] */
+    public function findByChart(Chart $chart): array
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.chart = :chart')
+            ->setParameter('chart', $chart)
+            ->getQuery()
+            ->getResult();
+    }
 }
 

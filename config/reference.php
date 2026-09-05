@@ -1482,6 +1482,20 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         nelmio_cors?: NelmioCorsConfig,
  *         mercure?: MercureConfig,
  *     },
+ *     "when@sandbox"?: array{
+ *         imports?: ImportsConfig,
+ *         parameters?: ParametersConfig,
+ *         services?: ServicesConfig,
+ *         framework?: FrameworkConfig,
+ *         security?: SecurityConfig,
+ *         lexik_jwt_authentication?: LexikJwtAuthenticationConfig,
+ *         doctrine?: DoctrineConfig,
+ *         doctrine_migrations?: DoctrineMigrationsConfig,
+ *         nelmio_api_doc?: NelmioApiDocConfig,
+ *         twig?: TwigConfig,
+ *         nelmio_cors?: NelmioCorsConfig,
+ *         mercure?: MercureConfig,
+ *     },
  *     "when@test"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
@@ -1580,6 +1594,7 @@ namespace Symfony\Component\Routing\Loader\Configurator;
  * @psalm-type RoutesConfig = array{
  *     "when@dev"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     "when@prod"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
+ *     "when@sandbox"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     "when@test"?: array<string, RouteConfig|ImportConfig|AliasConfig>,
  *     ...<string, RouteConfig|ImportConfig|AliasConfig>
  * }

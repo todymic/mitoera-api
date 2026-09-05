@@ -148,9 +148,8 @@ class ChartService
     {
         $chart = $this->findChartOrFail($id);
 
-        $eventCount = $this->eventRepository->countByChart($chart);
-        if ($eventCount > 0) {
-            throw new ConflictHttpException('Impossible de supprimer ce plan: il est lie a un ou plusieurs evenements.');
+        foreach ($this->eventRepository->findByChart($chart) as $event) {
+            $event->setChart(null);
         }
 
         $this->em->remove($chart);
