@@ -100,13 +100,18 @@ class StripeService
         $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
         $priceId    = $this->planKeyToPriceId($planKey);
 
+        $workspaceIdStr = $workspace->getId()->toRfc4122();
         $session = $this->stripe->checkout->sessions->create([
             'customer'   => $customerId,
             'mode'       => 'subscription',
             'line_items' => [['price' => $priceId, 'quantity' => 1]],
+            'metadata'   => [
+                'workspaceId' => $workspaceIdStr,
+                'planKey'     => $planKey,
+            ],
             'subscription_data' => [
                 'metadata' => [
-                    'workspaceId' => $workspace->getId()->toRfc4122(),
+                    'workspaceId' => $workspaceIdStr,
                     'planKey'     => $planKey,
                 ],
             ],
