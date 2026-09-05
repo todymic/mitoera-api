@@ -10,6 +10,7 @@ use App\Repository\SurplusInvoiceRepository;
 use App\Service\QuotaService;
 use App\Service\StripeService;
 use App\Service\WorkspaceContext;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ class BillingController extends AbstractController
         private readonly SubscriptionRepository   $subscriptionRepo,
         private readonly SurplusInvoiceRepository $surplusRepo,
         private readonly WorkspaceContext         $workspaceContext,
+        private readonly EntityManagerInterface   $em,
     ) {}
 
     private function currentUser(): User
@@ -216,5 +218,28 @@ class BillingController extends AbstractController
         }
 
         return new Response('OK', 200);
+    }
+
+    /**
+     * POST /api/billing/test/reset
+     * Reset subscription for E2E tests — sandbox env only.
+     */
+    #[Route('/test/reset', methods: ['POST'])]
+    #[IsGranted('ROLE_BACKOFFICE')]
+    public function testReset(): JsonResponse
+    {
+        if ($_ENV['APP_ENV'] !== 'sandbox') {
+            return $this->json(['error' => 'Only available in sandbox'], 403);
+        }
+
+        $workspace = $this->currentWorkspace();
+        $sub       = $this->subscriptionRepo->findByWorkspace($workspace);
+
+        if ($sub) {
+            $this->em->remove($sub);
+            $this->em->flush();
+        }
+
+        return $this->json(['ok' => true]);
     }
 }
