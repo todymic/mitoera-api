@@ -288,7 +288,7 @@ class StripeService
 
     // ── Webhook handlers ──────────────────────────────────────────────────────
 
-    private function onCheckoutCompleted(\Stripe\Session $session): void
+    private function onCheckoutCompleted(\Stripe\Checkout\Session $session): void
     {
         if ($session->mode === 'setup') {
             $this->onSetupCheckoutCompleted($session);
@@ -348,7 +348,7 @@ class StripeService
         }
     }
 
-    private function onSetupCheckoutCompleted(\Stripe\Session $session): void
+    private function onSetupCheckoutCompleted(\Stripe\Checkout\Session $session): void
     {
         $workspaceId = $session->metadata['workspaceId'] ?? null;
         $planKey     = $session->metadata['planKey'] ?? null;
