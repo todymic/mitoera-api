@@ -528,7 +528,7 @@ class StripeService
             return null;
         }
         try {
-            $workspace = $this->em->getReference(Workspace::class, $workspaceId);
+            $workspace = $this->em->getReference(Workspace::class, \Symfony\Component\Uid\Uuid::fromString($workspaceId));
             return $this->subscriptionRepo->findByWorkspace($workspace);
         } catch (\Exception) {
             return null;
