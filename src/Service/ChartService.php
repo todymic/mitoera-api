@@ -26,16 +26,20 @@ class ChartService
 
     public function create(ChartRequest $request): ChartResponse
     {
-        $existing = $this->chartRepository->findBySlug($request->slug);
-        if ($existing) {
-            throw new DuplicateKeyException("Chart with slug '{$request->slug}' already exists");
+        $workspace = $this->workspaceContext->getWorkspace();
+
+        if ($workspace) {
+            $existing = $this->chartRepository->findActiveBySlugAndWorkspace($request->slug, $workspace);
+            if ($existing) {
+                throw new DuplicateKeyException("Chart with slug '{$request->slug}' already exists");
+            }
         }
 
         $chart = new Chart();
         $chart->setName($request->name);
         $chart->setSlug($request->slug);
         $chart->setObjectsJson([]);
-        $chart->setWorkspace($this->workspaceContext->getWorkspace());
+        $chart->setWorkspace($workspace);
 
         $this->em->persist($chart);
         $this->em->flush();
@@ -74,7 +78,10 @@ class ChartService
         $chart = $this->findChartOrFail($id);
 
         if ($request->slug !== $chart->getSlug()) {
-            $existing = $this->chartRepository->findBySlug($request->slug);
+            $workspace = $chart->getWorkspace();
+            $existing = $workspace
+                ? $this->chartRepository->findActiveBySlugAndWorkspace($request->slug, $workspace)
+                : null;
             if ($existing) {
                 throw new DuplicateKeyException("Chart with slug '{$request->slug}' already exists");
             }
