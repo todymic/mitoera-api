@@ -52,7 +52,7 @@ class UserService
         $this->em->flush();
 
         $this->workspaceService->createForUser($user, 'locale');
-        $this->messageBus->dispatch(new SyncUserToSandboxMessage($user->getId()));
+        $this->messageBus->dispatch(new SyncUserToSandboxMessage($user->getId()->toRfc4122()));
 
         return $user;
     }
