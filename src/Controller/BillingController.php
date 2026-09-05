@@ -62,9 +62,14 @@ class BillingController extends AbstractController
             ]);
         }
 
+        $hasCard = $sub->getStripeCustomerId()
+            ? $this->stripe->hasDefaultPaymentMethod($sub->getStripeCustomerId())
+            : false;
+
         return $this->json([
             'plans'          => Subscription::PLANS,
             'subscription'   => $sub->toArray(),
+            'hasCard'        => $hasCard,
             'usage'          => $this->quota->getUsageSummary($sub),
             'surplusHistory' => array_map(fn($inv) => [
                 'month'       => $inv->getBilledMonth()->format('Y-m'),

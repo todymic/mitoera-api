@@ -33,6 +33,16 @@ class StripeService
 
     // ── Customer ──────────────────────────────────────────────────────────────
 
+    public function hasDefaultPaymentMethod(string $customerId): bool
+    {
+        try {
+            $customer = $this->stripe->customers->retrieve($customerId, ['expand' => ['invoice_settings.default_payment_method']]);
+            return !empty($customer->invoice_settings?->default_payment_method);
+        } catch (\Exception) {
+            return false;
+        }
+    }
+
     public function getOrCreateCustomer(Workspace $workspace, string $email, string $name): string
     {
         $sub = $this->subscriptionRepo->findByWorkspace($workspace);
@@ -131,13 +141,22 @@ class StripeService
             return $successUrl;
         }
 
-        // Switching TO base: cancel Stripe sub + activate locally
+        // Switching TO base: cancel Stripe sub, then collect card via setup session
         if ($planKey === Subscription::PLAN_BASE) {
             if ($sub->getStripeSubscriptionId()) {
                 $this->stripe->subscriptions->cancel($sub->getStripeSubscriptionId());
+                $sub->setStripeSubscriptionId(null);
+                $this->em->flush();
             }
-            $this->activateBase($workspace, $sub->getStripeCustomerId());
-            return $successUrl;
+            $user = $workspace->getOwner();
+            return $this->createCheckoutSession(
+                $workspace,
+                Subscription::PLAN_BASE,
+                $user?->getEmail() ?? '',
+                $user?->getDisplayName() ?? '',
+                $successUrl,
+                $cancelUrl,
+            );
         }
 
         // Switching FROM tsena (no Stripe sub) OR between mora/soa
