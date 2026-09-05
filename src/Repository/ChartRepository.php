@@ -28,6 +28,25 @@ class ChartRepository extends ServiceEntityRepository
         return $this->findOneBy(['slug' => $slug]);
     }
 
+    /**
+     * Used for the create/rename slug-uniqueness check — scoped to the
+     * caller's own workspace (findBySlug() alone matches any workspace's
+     * chart) and ignores archived charts, since archiving a chart in the BO
+     * only hides it from the list rather than freeing its slug.
+     */
+    public function findActiveBySlugAndWorkspace(string $slug, Workspace $workspace): ?Chart
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.slug = :slug')
+            ->andWhere('c.workspace = :workspace')
+            ->andWhere('c.status != :archived')
+            ->setParameter('slug', $slug)
+            ->setParameter('workspace', $workspace)
+            ->setParameter('archived', 'archived')
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return Chart[] */
     /**
      * Vue admin transverse des plans de salle, avec leur workspace, le nombre
