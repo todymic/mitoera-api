@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Dto\EventRequest;
 use App\Service\EventService;
+use App\Service\WorkspaceContext;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ class EventController extends AbstractController
 {
     public function __construct(
         private EventService $eventService,
+        private WorkspaceContext $workspaceContext,
     ) {
     }
 
@@ -31,13 +33,19 @@ class EventController extends AbstractController
     }
 
     #[Route('/lookup/{identifier}', methods: ['GET'])]
+    #[IsGranted('IS_AUTHENTICATED')]
     #[OA\Tag(name: 'Events')]
     #[OA\Parameter(name: 'identifier', in: 'path', required: true, schema: new OA\Schema(type: 'string'))]
     #[OA\Response(response: 200, description: 'UUID de l\'événement')]
     #[OA\Response(response: 404, description: 'Événement introuvable')]
     public function lookup(string $identifier): JsonResponse
     {
-        $event = $this->eventService->findByIdentifier($identifier);
+        $workspace = $this->workspaceContext->getWorkspace();
+        if (!$workspace) {
+            return $this->json(['error' => 'Event not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $event = $this->eventService->findByIdentifierAndWorkspace($identifier, $workspace);
         if (!$event) {
             return $this->json(['error' => 'Event not found'], Response::HTTP_NOT_FOUND);
         }
