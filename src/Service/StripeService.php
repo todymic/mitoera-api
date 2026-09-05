@@ -90,8 +90,8 @@ class StripeService
         $customerId = $this->getOrCreateCustomer($workspace, $email, $name);
         $priceId    = $this->planKeyToPriceId($planKey);
 
-        // Anchor billing to the 1st of the current month
-        $billingAnchor = (new \DateTimeImmutable('first day of this month midnight'))->getTimestamp();
+        // Anchor billing to the 1st of next month (current month's 1st is already past)
+        $billingAnchor = (new \DateTimeImmutable('first day of next month midnight'))->getTimestamp();
 
         $session = $this->stripe->checkout->sessions->create([
             'customer'   => $customerId,
