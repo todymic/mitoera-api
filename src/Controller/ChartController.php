@@ -41,10 +41,9 @@ class ChartController extends AbstractController
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
-            required: ['name', 'slug'],
+            required: ['name'],
             properties: [
                 new OA\Property(property: 'name', type: 'string', example: 'Main Hall'),
-                new OA\Property(property: 'slug', type: 'string', example: 'main-hall'),
             ]
         )
     )]
@@ -53,10 +52,7 @@ class ChartController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        $chartRequest = new ChartRequest(
-            $data['name'] ?? '',
-            $data['slug'] ?? '',
-        );
+        $chartRequest = new ChartRequest($data['name'] ?? '');
 
         $response = $this->chartService->create($chartRequest);
         return $this->json($response, Response::HTTP_CREATED);
@@ -81,10 +77,9 @@ class ChartController extends AbstractController
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
-            required: ['name', 'slug'],
+            required: ['name'],
             properties: [
                 new OA\Property(property: 'name', type: 'string', example: 'Updated Hall'),
-                new OA\Property(property: 'slug', type: 'string', example: 'updated-hall'),
             ]
         )
     )]
@@ -93,10 +88,7 @@ class ChartController extends AbstractController
     public function update(string $id, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        $chartRequest = new ChartRequest(
-            $data['name'] ?? '',
-            $data['slug'] ?? '',
-        );
+        $chartRequest = new ChartRequest($data['name'] ?? '');
 
         $response = $this->chartService->update($id, $chartRequest);
         return $this->json($response);
@@ -123,8 +115,8 @@ class ChartController extends AbstractController
 
         try {
             $hub->publish(new Update(
-                "chart/{$response->slug}",
-                json_encode(['type' => 'chartUpdated', 'chartKey' => $response->slug]),
+                'chart/' . $response->id,
+                json_encode(['type' => 'chartUpdated', 'chartId' => $response->id]),
             ));
         } catch (\Throwable $e) {
             error_log('[Mercure] Failed to publish chart update: ' . $e->getMessage());
@@ -186,20 +178,20 @@ class ChartController extends AbstractController
         return $this->json(['message' => 'Chart deleted']);
     }
 
-    #[Route('/{chartKey}/categories', methods: ['GET'])]
+    #[Route('/{chartId}/categories', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED')]
     #[OA\Tag(name: 'Charts')]
     #[OA\Response(response: 200, description: 'Liste des categories du chart')]
-    public function listCategories(string $chartKey): JsonResponse
+    public function listCategories(string $chartId): JsonResponse
     {
-        return $this->json($this->categoryService->findAllForChart($chartKey));
+        return $this->json($this->categoryService->findAllForChart($chartId));
     }
 
-    #[Route('/{chartKey}/categories', methods: ['POST'])]
+    #[Route('/{chartId}/categories', methods: ['POST'])]
     #[IsGranted('ROLE_BACKOFFICE')]
     #[OA\Tag(name: 'Charts')]
     #[OA\Response(response: 201, description: 'Categorie creee pour le chart')]
-    public function createCategory(string $chartKey, Request $request): JsonResponse
+    public function createCategory(string $chartId, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
@@ -208,24 +200,24 @@ class ChartController extends AbstractController
             $data['color'] ?? '',
         );
 
-        $response = $this->categoryService->createForChart($chartKey, $categoryRequest);
+        $response = $this->categoryService->createForChart($chartId, $categoryRequest);
         return $this->json($response, Response::HTTP_CREATED);
     }
 
-    #[Route('/{chartKey}/categories/{key}', methods: ['GET'])]
+    #[Route('/{chartId}/categories/{key}', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED')]
     #[OA\Tag(name: 'Charts')]
     #[OA\Response(response: 200, description: 'Categorie du chart')]
-    public function showCategory(string $chartKey, string $key): JsonResponse
+    public function showCategory(string $chartId, string $key): JsonResponse
     {
-        return $this->json($this->categoryService->findByChartAndKey($chartKey, $key));
+        return $this->json($this->categoryService->findByChartAndKey($chartId, $key));
     }
 
-    #[Route('/{chartKey}/categories/{key}', methods: ['PUT'])]
+    #[Route('/{chartId}/categories/{key}', methods: ['PUT'])]
     #[IsGranted('ROLE_BACKOFFICE')]
     #[OA\Tag(name: 'Charts')]
     #[OA\Response(response: 200, description: 'Categorie du chart modifiee')]
-    public function updateCategory(string $chartKey, string $key, Request $request): JsonResponse
+    public function updateCategory(string $chartId, string $key, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
         $categoryRequest = new CategoryRequest(
@@ -234,17 +226,17 @@ class ChartController extends AbstractController
             $data['color'] ?? '',
         );
 
-        $response = $this->categoryService->updateByChartAndKey($chartKey, $key, $categoryRequest);
+        $response = $this->categoryService->updateByChartAndKey($chartId, $key, $categoryRequest);
         return $this->json($response);
     }
 
-    #[Route('/{chartKey}/categories/{key}', methods: ['DELETE'])]
+    #[Route('/{chartId}/categories/{key}', methods: ['DELETE'])]
     #[IsGranted('ROLE_BACKOFFICE')]
     #[OA\Tag(name: 'Charts')]
     #[OA\Response(response: 200, description: 'Categorie du chart supprimee')]
-    public function deleteCategory(string $chartKey, string $key): JsonResponse
+    public function deleteCategory(string $chartId, string $key): JsonResponse
     {
-        $this->categoryService->deleteByChartAndKey($chartKey, $key);
+        $this->categoryService->deleteByChartAndKey($chartId, $key);
         return $this->json(['message' => 'Category deleted']);
     }
 }

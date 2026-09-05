@@ -11,7 +11,6 @@ use App\Exception\ResourceNotFoundException;
 use App\Repository\ChartRepository;
 use App\Repository\CategoryRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Uid\Uuid;
 
 class CategoryService
 {
@@ -244,20 +243,12 @@ class CategoryService
         );
     }
 
-    private function findChartOrFail(string $idOrSlug): Chart
+    private function findChartOrFail(string $id): Chart
     {
-        if (Uuid::isValid($idOrSlug)) {
-            $chart = $this->chartRepository->find($idOrSlug);
-            if ($chart) {
-                return $chart;
-            }
+        $chart = $this->chartRepository->find($id);
+        if (!$chart) {
+            throw new ResourceNotFoundException('Chart not found');
         }
-
-        $chart = $this->chartRepository->findBySlug($idOrSlug);
-        if ($chart) {
-            return $chart;
-        }
-
-        throw new ResourceNotFoundException('Chart not found');
+        return $chart;
     }
 }

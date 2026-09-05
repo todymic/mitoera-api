@@ -27,17 +27,11 @@ class ChartService
     public function create(ChartRequest $request): ChartResponse
     {
         $workspace = $this->workspaceContext->getWorkspace();
-
-        if ($workspace) {
-            $existing = $this->chartRepository->findActiveBySlugAndWorkspace($request->slug, $workspace);
-            if ($existing) {
-                throw new DuplicateKeyException("Chart with slug '{$request->slug}' already exists");
-            }
-        }
+        $slug = $this->generateSlug($request->name, null, $workspace);
 
         $chart = new Chart();
         $chart->setName($request->name);
-        $chart->setSlug($request->slug);
+        $chart->setSlug($slug);
         $chart->setObjectsJson([]);
         $chart->setWorkspace($workspace);
 
@@ -62,33 +56,18 @@ class ChartService
         return $this->toResponse($chart);
     }
 
-    public function findBySlug(string $slug): ChartResponse
+    public function ensureChartExists(string $id): void
     {
-        $chart = $this->findChartOrFail($slug);
-        return $this->toResponse($chart);
-    }
-
-    public function ensureChartExists(string $idOrSlug): void
-    {
-        $this->findChartOrFail($idOrSlug);
+        $this->findChartOrFail($id);
     }
 
     public function update(string $id, ChartRequest $request): ChartResponse
     {
         $chart = $this->findChartOrFail($id);
-
-        if ($request->slug !== $chart->getSlug()) {
-            $workspace = $chart->getWorkspace();
-            $existing = $workspace
-                ? $this->chartRepository->findActiveBySlugAndWorkspace($request->slug, $workspace)
-                : null;
-            if ($existing) {
-                throw new DuplicateKeyException("Chart with slug '{$request->slug}' already exists");
-            }
-        }
+        $slug = $this->generateSlug($request->name, $chart, $chart->getWorkspace());
 
         $chart->setName($request->name);
-        $chart->setSlug($request->slug);
+        $chart->setSlug($slug);
 
         $this->em->persist($chart);
         $this->em->flush();
@@ -170,21 +149,31 @@ class ChartService
         );
     }
 
-    private function findChartOrFail(string $idOrSlug): Chart
+    private function findChartOrFail(string $id): Chart
     {
-        if (Uuid::isValid($idOrSlug)) {
-            $chart = $this->chartRepository->find($idOrSlug);
-            if ($chart) {
-                return $chart;
+        $chart = $this->chartRepository->find($id);
+        if (!$chart) {
+            throw new ResourceNotFoundException('Chart not found');
+        }
+        return $chart;
+    }
+
+    private function generateSlug(string $name, ?Chart $currentChart, mixed $workspace): string
+    {
+        $base = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
+        $base = trim($base, '-') ?: 'chart';
+        $slug = $base;
+        $i = 1;
+        while (true) {
+            $existing = $workspace
+                ? $this->chartRepository->findActiveBySlugAndWorkspace($slug, $workspace)
+                : $this->chartRepository->findBySlug($slug);
+            if (!$existing || ($currentChart && $existing->getId() === $currentChart->getId())) {
+                break;
             }
+            $slug = $base . '-' . $i++;
         }
-
-        $chart = $this->chartRepository->findBySlug($idOrSlug);
-        if ($chart) {
-            return $chart;
-        }
-
-        throw new ResourceNotFoundException('Chart not found');
+        return $slug;
     }
 
     private function validateObjectsCategories(array $objects): void
