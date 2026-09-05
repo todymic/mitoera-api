@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Dto\ChartRequest;
 use App\Dto\CategoryRequest;
 use App\Service\CategoryService;
+use App\Service\WorkspaceGuard;
 use App\Service\ChartService;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,6 +23,7 @@ class ChartController extends AbstractController
     public function __construct(
         private readonly ChartService    $chartService,
         private readonly CategoryService $categoryService,
+        private readonly WorkspaceGuard  $workspaceGuard,
     ) {
     }
 
@@ -66,6 +68,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 404, description: 'Chart introuvable')]
     public function show(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertChart($id);
         $chart = $this->chartService->findById($id);
         return $this->json($chart);
     }
@@ -90,6 +93,7 @@ class ChartController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $chartRequest = new ChartRequest($data['name'] ?? '');
 
+        $this->workspaceGuard->assertChart($id);
         $response = $this->chartService->update($id, $chartRequest);
         return $this->json($response);
     }
@@ -101,6 +105,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 200, description: 'Modifications marquées comme en attente')]
     public function markPending(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertChart($id);
         return $this->json($this->chartService->markPendingChanges($id));
     }
 
@@ -111,6 +116,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 200, description: 'Modifications marquées comme publiées')]
     public function publish(string $id, HubInterface $hub): JsonResponse
     {
+        $this->workspaceGuard->assertChart($id);
         $response = $this->chartService->clearPendingChanges($id);
 
         try {
@@ -134,6 +140,7 @@ class ChartController extends AbstractController
     public function updateStatus(string $id, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
+        $this->workspaceGuard->assertChart($id);
         $response = $this->chartService->updateStatus($id, $data['status'] ?? '');
         return $this->json($response);
     }
@@ -162,6 +169,7 @@ class ChartController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $objects = $data['objects'] ?? [];
 
+        $this->workspaceGuard->assertChart($id);
         $response = $this->chartService->updateObjects($id, $objects);
         return $this->json($response);
     }
@@ -174,6 +182,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 404, description: 'Chart introuvable')]
     public function delete(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertChart($id);
         $this->chartService->delete($id);
         return $this->json(['message' => 'Chart deleted']);
     }
@@ -184,6 +193,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 200, description: 'Liste des categories du chart')]
     public function listCategories(string $chartId): JsonResponse
     {
+        $this->workspaceGuard->assertChart($chartId);
         return $this->json($this->categoryService->findAllForChart($chartId));
     }
 
@@ -200,6 +210,7 @@ class ChartController extends AbstractController
             $data['color'] ?? '',
         );
 
+        $this->workspaceGuard->assertChart($chartId);
         $response = $this->categoryService->createForChart($chartId, $categoryRequest);
         return $this->json($response, Response::HTTP_CREATED);
     }
@@ -210,6 +221,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 200, description: 'Categorie du chart')]
     public function showCategory(string $chartId, string $key): JsonResponse
     {
+        $this->workspaceGuard->assertChart($chartId);
         return $this->json($this->categoryService->findByChartAndKey($chartId, $key));
     }
 
@@ -226,6 +238,7 @@ class ChartController extends AbstractController
             $data['color'] ?? '',
         );
 
+        $this->workspaceGuard->assertChart($chartId);
         $response = $this->categoryService->updateByChartAndKey($chartId, $key, $categoryRequest);
         return $this->json($response);
     }
@@ -236,6 +249,7 @@ class ChartController extends AbstractController
     #[OA\Response(response: 200, description: 'Categorie du chart supprimee')]
     public function deleteCategory(string $chartId, string $key): JsonResponse
     {
+        $this->workspaceGuard->assertChart($chartId);
         $this->categoryService->deleteByChartAndKey($chartId, $key);
         return $this->json(['message' => 'Category deleted']);
     }

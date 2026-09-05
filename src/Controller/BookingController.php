@@ -8,6 +8,7 @@ use App\Dto\HoldRequest;
 use App\Dto\ReleaseRequest;
 use App\Entity\SeatStatus;
 use App\Service\BookingService;
+use App\Service\WorkspaceGuard;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,6 +23,7 @@ class BookingController extends AbstractController
 {
     public function __construct(
         private BookingService $bookingService,
+        private WorkspaceGuard $workspaceGuard,
     ) {
     }
 
@@ -45,6 +47,8 @@ class BookingController extends AbstractController
     public function hold(string $eventId, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
+
+        $this->workspaceGuard->assertEvent($eventId);
 
         try {
             $response = $this->bookingService->holdSeats(
@@ -82,6 +86,8 @@ class BookingController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
+        $this->workspaceGuard->assertEvent($eventId);
+
         try {
             $response = $this->bookingService->bookSeats(
                 Uuid::fromString($eventId),
@@ -116,6 +122,8 @@ class BookingController extends AbstractController
     public function release(string $eventId, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
+
+        $this->workspaceGuard->assertEvent($eventId);
 
         try {
             $this->bookingService->releaseSeats(
@@ -155,6 +163,7 @@ class BookingController extends AbstractController
 
         try {
             $status = SeatStatus::from($data['status'] ?? 'available');
+            $this->workspaceGuard->assertEvent($eventId);
             $this->bookingService->changeStatus(
                 Uuid::fromString($eventId),
                 $data['seatKeys'] ?? [],

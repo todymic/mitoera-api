@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Dto\EventRequest;
 use App\Service\EventService;
 use App\Service\WorkspaceContext;
+use App\Service\WorkspaceGuard;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +20,7 @@ class EventController extends AbstractController
     public function __construct(
         private EventService $eventService,
         private WorkspaceContext $workspaceContext,
+        private WorkspaceGuard $workspaceGuard,
     ) {
     }
 
@@ -89,6 +91,7 @@ class EventController extends AbstractController
     #[OA\Response(response: 404, description: 'Evenement introuvable')]
     public function show(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertEvent($id);
         $event = $this->eventService->findById($id);
         return $this->json($event);
     }
@@ -119,6 +122,7 @@ class EventController extends AbstractController
             $data['chartId'] ?? null,
         );
 
+        $this->workspaceGuard->assertEvent($id);
         $response = $this->eventService->update($id, $eventRequest);
         return $this->json($response);
     }
@@ -131,6 +135,7 @@ class EventController extends AbstractController
     #[OA\Response(response: 404, description: 'Evenement introuvable')]
     public function delete(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertEvent($id);
         $this->eventService->delete($id);
         return $this->json(['message' => 'Event deleted']);
     }
@@ -144,6 +149,8 @@ class EventController extends AbstractController
     #[OA\Response(response: 404, description: 'Evenement ou chart introuvable')]
     public function linkChart(string $eventId, string $chartId): JsonResponse
     {
+        $this->workspaceGuard->assertEvent($eventId);
+        $this->workspaceGuard->assertChart($chartId);
         $response = $this->eventService->linkChart($eventId, $chartId);
         return $this->json($response);
     }
@@ -158,6 +165,7 @@ class EventController extends AbstractController
     public function getSeats(string $id, Request $request): JsonResponse
     {
         $filterKeys = $request->query->all('seatKeys');
+        $this->workspaceGuard->assertEvent($id);
         $indexed = $this->eventService->getSeatStatuses($id, $filterKeys);
 
         return $this->json(['seats' => $indexed]);
@@ -175,6 +183,7 @@ class EventController extends AbstractController
     public function bulkUpdateSeats(string $id, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
+        $this->workspaceGuard->assertEvent($id);
         $this->eventService->bulkUpdateSeatStatus($id, $data['seatKeys'] ?? [], $data['status'] ?? 'available');
         return $this->json(['updated' => count($data['seatKeys'] ?? [])]);
     }

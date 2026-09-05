@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Dto\CategoryRequest;
 use App\Service\CategoryService;
+use App\Service\WorkspaceGuard;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ class CategoryController extends AbstractController
 {
     public function __construct(
         private CategoryService $categoryService,
+        private WorkspaceGuard $workspaceGuard,
     ) {
     }
 
@@ -69,6 +71,7 @@ class CategoryController extends AbstractController
     #[OA\Response(response: 404, description: 'Categorie introuvable')]
     public function show(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertCategory($id);
         $category = $this->categoryService->findById($id);
         return $this->json($category);
     }
@@ -100,6 +103,7 @@ class CategoryController extends AbstractController
             $data['color'] ?? '',
         );
 
+        $this->workspaceGuard->assertCategory($id);
         $response = $this->categoryService->update($id, $categoryRequest);
         return $this->json($response);
     }
@@ -113,6 +117,7 @@ class CategoryController extends AbstractController
     #[OA\Response(response: 404, description: 'Categorie introuvable')]
     public function delete(string $id): JsonResponse
     {
+        $this->workspaceGuard->assertCategory($id);
         $this->categoryService->delete($id);
         return $this->json(['message' => 'Category deleted']);
     }

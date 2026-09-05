@@ -111,7 +111,15 @@ class EventService
         }
 
         if ($request->identifier !== $event->getIdentifier()) {
-            $existing = $this->eventRepository->findByIdentifier($request->identifier);
+            // Scoped like create() and like the (identifier, workspace_id)
+            // unique index — the global lookup used here rejected an
+            // identifier that was free in this workspace but taken in
+            // another one.
+            $workspace = $this->workspaceContext->getWorkspace();
+            $existing = $workspace
+                ? $this->eventRepository->findByIdentifierAndWorkspace($request->identifier, $workspace)
+                : $this->eventRepository->findByIdentifier($request->identifier);
+
             if ($existing) {
                 throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
             }
