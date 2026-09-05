@@ -10,6 +10,7 @@ use App\Entity\Chart;
 use App\Entity\Event;
 use App\Entity\EventSeat;
 use App\Entity\SeatStatus;
+use App\Entity\Workspace;
 use App\Exception\DuplicateKeyException;
 use App\Exception\ResourceNotFoundException;
 use App\Repository\CategoryRepository;
@@ -37,15 +38,19 @@ class EventService
 
     public function create(EventRequest $request): EventResponse
     {
-        $existing = $this->eventRepository->findByIdentifier($request->identifier);
-        if ($existing) {
-            throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
+        $workspace = $this->workspaceContext->getWorkspace();
+
+        if ($workspace) {
+            $existing = $this->eventRepository->findByIdentifierAndWorkspace($request->identifier, $workspace);
+            if ($existing) {
+                throw new DuplicateKeyException("Event with identifier '$request->identifier' already exists");
+            }
         }
 
         $event = new Event();
         $event->setTitle($request->title);
         $event->setIdentifier($request->identifier);
-$event->setWorkspace($this->workspaceContext->getWorkspace());
+        $event->setWorkspace($workspace);
 
         if ($request->chartId) {
             if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $request->chartId)) {
@@ -78,6 +83,11 @@ $event->setWorkspace($this->workspaceContext->getWorkspace());
     public function findByIdentifier(string $identifier): ?Event
     {
         return $this->eventRepository->findByIdentifier($identifier);
+    }
+
+    public function findByIdentifierAndWorkspace(string $identifier, Workspace $workspace): ?Event
+    {
+        return $this->eventRepository->findByIdentifierAndWorkspace($identifier, $workspace);
     }
 
     public function findById(string $id): EventDetailResponse
