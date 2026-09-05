@@ -403,7 +403,6 @@ private function toResponse(Event $event): EventResponse
             $chart?->getPublishedSnapshot(),
             $categories,
             $this->mercurePublicUrl ?: null,
-            $chart?->getSlug(),
         );
     }
 }

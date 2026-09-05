@@ -19,9 +19,6 @@ class Chart
     #[ORM\Column(type: 'string', nullable: false)]
     private string $name;
 
-    #[ORM\Column(type: 'string', unique: true, nullable: false)]
-    private string $slug;
-
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $objectsJson = null;
 
@@ -92,18 +89,6 @@ class Chart
     public function setName(string $name): self
     {
         $this->name = $name;
-        $this->updatedAt = new DateTimeImmutable();
-        return $this;
-    }
-
-    public function getSlug(): string
-    {
-        return $this->slug;
-    }
-
-    public function setSlug(string $slug): self
-    {
-        $this->slug = $slug;
         $this->updatedAt = new DateTimeImmutable();
         return $this;
     }

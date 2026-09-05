@@ -5,14 +5,11 @@ namespace App\Service;
 use App\Dto\ChartRequest;
 use App\Dto\ChartResponse;
 use App\Entity\Chart;
-use App\Exception\DuplicateKeyException;
 use App\Exception\ResourceNotFoundException;
 use App\Repository\ChartRepository;
 use App\Repository\EventRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\Uid\Uuid;
 
 class ChartService
 {
@@ -27,11 +24,9 @@ class ChartService
     public function create(ChartRequest $request): ChartResponse
     {
         $workspace = $this->workspaceContext->getWorkspace();
-        $slug = $this->generateSlug($request->name, null, $workspace);
 
         $chart = new Chart();
         $chart->setName($request->name);
-        $chart->setSlug($slug);
         $chart->setObjectsJson([]);
         $chart->setWorkspace($workspace);
 
@@ -64,10 +59,8 @@ class ChartService
     public function update(string $id, ChartRequest $request): ChartResponse
     {
         $chart = $this->findChartOrFail($id);
-        $slug = $this->generateSlug($request->name, $chart, $chart->getWorkspace());
 
         $chart->setName($request->name);
-        $chart->setSlug($slug);
 
         $this->em->persist($chart);
         $this->em->flush();
@@ -140,7 +133,6 @@ class ChartService
         return new ChartResponse(
             $chart->getId(),
             $chart->getName(),
-            $chart->getSlug(),
             $chart->getObjects(),
             $chart->getUpdatedAt(),
             $chart->getStatus(),
@@ -156,24 +148,6 @@ class ChartService
             throw new ResourceNotFoundException('Chart not found');
         }
         return $chart;
-    }
-
-    private function generateSlug(string $name, ?Chart $currentChart, mixed $workspace): string
-    {
-        $base = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
-        $base = trim($base, '-') ?: 'chart';
-        $slug = $base;
-        $i = 1;
-        while (true) {
-            $existing = $workspace
-                ? $this->chartRepository->findActiveBySlugAndWorkspace($slug, $workspace)
-                : $this->chartRepository->findBySlug($slug);
-            if (!$existing || ($currentChart && $existing->getId() === $currentChart->getId())) {
-                break;
-            }
-            $slug = $base . '-' . $i++;
-        }
-        return $slug;
     }
 
     private function validateObjectsCategories(array $objects): void

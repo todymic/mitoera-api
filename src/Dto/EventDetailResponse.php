@@ -18,7 +18,6 @@ class EventDetailResponse
         public ?array $publishedSnapshot = null,
         public array $categories = [],
         public ?string $mercurePublicUrl = null,
-        public ?string $chartSlug = null,
     ) {
     }
 }

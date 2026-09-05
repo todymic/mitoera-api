@@ -37,9 +37,9 @@ class MercureTokenController extends AbstractController
         }
 
         $topics = ["event/$eventId/seats"];
-        $chartSlug = $request->query->get('chartSlug');
-        if ($chartSlug) {
-            $topics[] = "chart/$chartSlug";
+        $chartId = $request->query->get('chartId');
+        if ($chartId) {
+            $topics[] = "chart/$chartId";
         }
 
         $token = $this->tokenService->buildSubscriberToken($topics);
