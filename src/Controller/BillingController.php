@@ -226,10 +226,11 @@ class BillingController extends AbstractController
      */
     #[Route('/test/reset', methods: ['POST'])]
     #[IsGranted('ROLE_BACKOFFICE')]
-    public function testReset(): JsonResponse
+    public function testReset(Request $request): JsonResponse
     {
-        if ($_ENV['APP_ENV'] !== 'sandbox') {
-            return $this->json(['error' => 'Only available in sandbox'], 403);
+        $secret = $_ENV['E2E_RESET_SECRET'] ?? null;
+        if (!$secret || $request->headers->get('X-E2E-Secret') !== $secret) {
+            return $this->json(['error' => 'Forbidden'], 403);
         }
 
         $workspace = $this->currentWorkspace();
