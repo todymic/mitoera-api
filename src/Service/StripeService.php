@@ -317,7 +317,7 @@ class StripeService
 
         $stripeSub = $this->stripe->subscriptions->retrieve($stripeSubId);
 
-        $workspace = $this->em->getReference(Workspace::class, $workspaceId);
+        $workspace = $this->em->getReference(Workspace::class, \Symfony\Component\Uid\Uuid::fromString($workspaceId));
 
         $planConfig  = Subscription::PLANS[$planKey];
         $periodStart = \DateTimeImmutable::createFromFormat('U', (string) $stripeSub->current_period_start)
@@ -375,7 +375,7 @@ class StripeService
             'invoice_settings' => ['default_payment_method' => $paymentMethodId],
         ]);
 
-        $workspace = $this->em->getReference(Workspace::class, $workspaceId);
+        $workspace = $this->em->getReference(Workspace::class, \Symfony\Component\Uid\Uuid::fromString($workspaceId));
         $this->activateBase($workspace, $customerId);
     }
 
