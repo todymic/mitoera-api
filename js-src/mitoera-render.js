@@ -21,24 +21,48 @@
   }
   const _ROM = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
   function _roman(n) { let v = n+1, r=''; for(const[a,b] of _ROM){while(v>=a){r+=b;v-=a;}} return r||String(n+1); }
-  function axisLabel(idx, total, fmt, dir) {
-    const i = dir === 'reversed' ? Math.max(0, total - 1 - idx) : idx;
+  function axisLabel(idx, total, fmt, dir, startAt) {
+    const i = (dir === 'reversed' ? Math.max(0, total - 1 - idx) : idx) + (startAt || 0);
     return fmt === 'A-Z' ? _letters(i,true) : fmt === 'a-z' ? _letters(i,false) : fmt === 'I-X' ? _roman(i) : String(i+1);
   }
-  function seatLabel(ri, ci, rows, cols, cfg) {
-    return axisLabel(ri, rows, cfg.rowFormat||'A-Z', cfg.rowDirection||'normal')
-         + axisLabel(ci, cols, cfg.colFormat||'1-9', cfg.colDirection||'normal');
-  }
-
   // ─── seat-key formulas (mirrors EventService.php) ────────────────────────────
+  // Réglages posés par rangée dans l'éditeur (nombre de sièges, libellé, départ de
+  // numérotation, décalage). Ignorer ces valeurs ferait diverger les clés du widget
+  // de celles écrites en base par EventService.
+  function rowOver(obj, ri) { return (obj.rowOverrides || {})[ri] || {}; }
+  function rowColCount(obj, ri) {
+    const o = rowOver(obj, ri);
+    return o.cols != null ? o.cols : (obj.cols || 1);
+  }
+  function rowLabelOf(obj, ri) {
+    const o = rowOver(obj, ri);
+    return (o.label != null && o.label !== '')
+      ? String(o.label)
+      : axisLabel(ri, obj.rows, obj.rowFormat, obj.rowDirection);
+  }
+  function colLabelOf(obj, ri, ci) {
+    const o = rowOver(obj, ri);
+    return axisLabel(ci, rowColCount(obj, ri), obj.colFormat, obj.colDirection, o.colStartAt || 0);
+  }
   function seatRowKey(obj, ri, ci) {
     const s = obj.section||obj.label||obj.id||'S';
-    return `${s}-${axisLabel(ri,obj.rows,obj.rowFormat,obj.rowDirection)}-${axisLabel(ci,obj.cols,obj.colFormat,obj.colDirection)}`;
+    return `${s}-${rowLabelOf(obj, ri)}-${colLabelOf(obj, ri, ci)}`;
   }
   function tableSectionKey(obj, ti, si) { return `${obj.section||obj.label||obj.id||'TS'}-${ti+1}-${si+1}`; }
   function tableZoneKey(obj, i)          { return `${obj.section||obj.label||obj.id||'T'}-${i+1}`; }
 
   // ─── geometry helpers ─────────────────────────────────────────────────────────
+  // Largeur utile d'un bloc : la rangée la plus large, décalage compris
+  function seatRowMaxCols(o) {
+    const over = o.rowOverrides || {};
+    let max = 0;
+    for (let r=0;r<(o.rows||1);r++) {
+      const ov = over[r] || {};
+      max = Math.max(max, (ov.cols != null ? ov.cols : (o.cols||1)) + (ov.colOffset||0));
+    }
+    return max || (o.cols||1);
+  }
+
   const TS_PAD = 4;
   function tableZoneSize(t)    { return (t.tableSize||30) + 2*(t.seatSize||15) + 16; }
   function tsSectionUnit(ts)   { return (ts.tableSize||30) + 2*(ts.seatSize||15) + 16; }
@@ -51,7 +75,7 @@
       const x=o.left||0, y=o.top||0; let w=0,h=0;
       const ss=o.seatSize||22, g=o.seatGap??4;
       if (o._type==='zone'||o._type==='freeZone')          { w=o.width||80;  h=o.height||60; }
-      else if (o._type==='seatRow')                        { w=(o.cols||1)*(ss+g); h=(o.rows||1)*(ss+g)+14; }
+      else if (o._type==='seatRow')                        { w=seatRowMaxCols(o)*(ss+g); h=(o.rows||1)*(ss+g)+14; }
       else if (o._type==='tableZone')                      { const s=tableZoneSize(o); w=s; h=s; }
       else if (o._type==='tableSection')                   { w=tsSectionWidth(o); h=tsSectionHeight(o); }
       x0=Math.min(x0,x); y0=Math.min(y0,y); x1=Math.max(x1,x+w); y1=Math.max(y1,y+h);
@@ -721,7 +745,7 @@
         const rx=(o.left||0)-minX, ry=(o.top||0)-minY;
         let rw=0, rh=0;
         if (o._type==='zone'||isFZ)       { rw=o.width||80; rh=o.height||60; }
-        else if (o._type==='seatRow')     { const ss=o.seatSize||22,g=o.seatGap??4; rw=(o.cols||1)*(ss+g); rh=(o.rows||1)*(ss+g)+14; }
+        else if (o._type==='seatRow')     { const ss=o.seatSize||22,g=o.seatGap??4; rw=seatRowMaxCols(o)*(ss+g); rh=(o.rows||1)*(ss+g)+14; }
         else if (o._type==='tableZone')   { const s=tableZoneSize(o); rw=s; rh=s; }
         else if (o._type==='tableSection'){ rw=tsSectionWidth(o); rh=tsSectionHeight(o); }
         if (!rw||!rh) continue;
@@ -1793,27 +1817,39 @@
       this._secBadges.push(centerBadge);
 
       const colW=row.shape==='rounded' ? Math.round(ss*1.5) : ss;
-      const grid=css(el('div'),{
-        display:'grid', gridTemplateColumns:`repeat(${row.cols||1},${colW}px)`, gap:'6px',
-      });
+      const grid=css(el('div'),{display:'flex',flexDirection:'column',gap:'6px'});
       centerBadge._seatsEl=grid;
       centerBadge._wrapEl=wrapper;
 
       const labelOverrides = row.seatLabelOverrides || {};
-      for (let r=0;r<(row.rows||1);r++) {
-        for (let c=0;c<(row.cols||1);c++) {
+      const nbRows = row.rows||1;
+      // rowOrder est une permutation d'affichage : l'index de données reste la clé
+      const order = (Array.isArray(row.rowOrder) && row.rowOrder.length === nbRows)
+        ? row.rowOrder
+        : Array.from({length:nbRows},(_,i)=>i);
+
+      for (const r of order) {
+        const ov = rowOver(row, r);
+        const rowCols = rowColCount(row, r);
+        const rl = rowLabelOf(row, r);
+        const line = css(el('div'),{display:'flex',gap:'6px'});
+        // colOffset se compte en colonnes : on pousse la rangée avec des cases vides
+        for (let i=0;i<(ov.colOffset||0);i++) {
+          line.appendChild(css(el('div'),{width:colW+'px',minWidth:colW+'px',height:ss+'px'}));
+        }
+        for (let c=0;c<rowCols;c++) {
           const pk=`${r}-${c}`;
           const isDel=deleted.includes(pk), isDis=!isDel&&disabled.includes(pk);
           const catId=overrides[pk]||row.categoryId;
           const ps=isDel ? 'deleted' : isDis ? 'disabled' : 'enabled';
-          const rl=axisLabel(r,row.rows,row.rowFormat,row.rowDirection);
-          const cl=axisLabel(c,row.cols,row.colFormat,row.colDirection);
-          const lbl=labelOverrides[pk] ?? seatLabel(r,c,row.rows,row.cols,row);
+          const cl=colLabelOf(row, r, c);
+          const lbl=labelOverrides[pk] ?? (rl + cl);
           const key=seatRowKey(row,r,c);
-          grid.appendChild(this._makeSeat(key,catId,ps,ss,row.shape,lbl,{
+          line.appendChild(this._makeSeat(key,catId,ps,ss,row.shape,lbl,{
             section:row.section||this._catName(row.categoryId), rowLabel:rl, colLabel:cl, label:lbl, catId,
           }));
         }
+        grid.appendChild(line);
       }
       card.appendChild(grid); wrapper.appendChild(card);
       wrapper.dataset.plancat = row.categoryId || '';

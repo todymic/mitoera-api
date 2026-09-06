@@ -261,13 +261,25 @@ class EventService
                 $colFmt   = is_array($object) ? ($object['colFormat']      ?? '1-9') : ($object->colFormat ?? '1-9');
                 $colDir   = is_array($object) ? ($object['colDirection']   ?? 'normal') : ($object->colDirection ?? 'normal');
                 $disabled = is_array($object) ? ($object['disabledSeats'] ?? []) : ($object->disabledSeats ?? []);
+                $deleted  = is_array($object) ? ($object['deletedSeats']  ?? []) : ($object->deletedSeats  ?? []);
+                // Réglages par rangée posés dans l'éditeur : nombre de sièges, libellé
+                // de rangée et départ de numérotation des colonnes. Sans eux, les clés
+                // générées ici ne correspondent pas à celles affichées sur le plan.
+                $rowOver  = $this->toArray(is_array($object) ? ($object['rowOverrides'] ?? []) : ($object->rowOverrides ?? []));
 
                 for ($r = 0; $r < $rows; $r++) {
-                    for ($c = 0; $c < $cols; $c++) {
+                    $over       = $this->toArray($rowOver[$r] ?? $rowOver[(string) $r] ?? []);
+                    $rowCols    = isset($over['cols'])       ? (int) $over['cols']       : $cols;
+                    $colStartAt = isset($over['colStartAt']) ? (int) $over['colStartAt'] : 0;
+                    $rowLabel   = isset($over['label']) && $over['label'] !== null && $over['label'] !== ''
+                        ? (string) $over['label']
+                        : $this->axisLabel($r, $rows, $rowFmt, $rowDir);
+
+                    for ($c = 0; $c < $rowCols; $c++) {
                         $posKey = "$r-$c";
                         if (in_array($posKey, $disabled)) continue;
-                        $rowLabel = $this->axisLabel($r, $rows, $rowFmt, $rowDir);
-                        $colLabel = $this->axisLabel($c, $cols, $colFmt, $colDir);
+                        if (in_array($posKey, $deleted)) continue;
+                        $colLabel = $this->axisLabel($c, $rowCols, $colFmt, $colDir, $colStartAt);
                         $seatKey  = "$section-$rowLabel-$colLabel";
                         $seat = new EventSeat();
                         $seat->setEvent($event);
@@ -339,9 +351,17 @@ class EventService
         }
     }
 
-    private function axisLabel(int $index, int $total, string $format, string $direction): string
+    /** Les objets du plan arrivent tantôt en tableau associatif, tantôt en stdClass. */
+    private function toArray(mixed $value): array
     {
-        $i = $direction === 'reversed' ? max(0, $total - 1 - $index) : $index;
+        if (is_array($value))  return $value;
+        if (is_object($value)) return (array) $value;
+        return [];
+    }
+
+    private function axisLabel(int $index, int $total, string $format, string $direction, int $startAt = 0): string
+    {
+        $i = ($direction === 'reversed' ? max(0, $total - 1 - $index) : $index) + $startAt;
         return match ($format) {
             'A-Z'  => $this->toLetters($i, true),
             'a-z'  => $this->toLetters($i, false),
