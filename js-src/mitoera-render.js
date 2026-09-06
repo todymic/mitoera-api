@@ -1771,7 +1771,7 @@
       const disabled=row.disabledSeats||[], deleted=row.deletedSeats||[];
       const overrides=row.categoryOverrides||{};
 
-      const wrapper=css(el('div'),{position:'absolute',top:(row.top||0)+'px',left:(row.left||0)+'px',paddingTop:'14px'});
+      const wrapper=css(el('div'),{position:'absolute',top:(row.top||0)+'px',left:(row.left||0)+'px',paddingTop:'14px',transform:`rotate(${row.rotation||0}deg)`});
 
 
       const card=css(el('div'),{
