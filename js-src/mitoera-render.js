@@ -51,6 +51,15 @@
   function tableSectionKey(obj, ti, si) { return `${obj.section||obj.label||obj.id||'TS'}-${ti+1}-${si+1}`; }
   function tableZoneKey(obj, i)          { return `${obj.section||obj.label||obj.id||'T'}-${i+1}`; }
 
+  // Zoom vise en entrant dans une section sur desktop : au moins le niveau de
+  // detail (les sieges sont lisibles), au plus 3 pour ne pas exploser sur un
+  // petit groupe. Sans plancher, une grande section restait en vue d'ensemble
+  // et demandait un second zoom.
+  const SECTION_ZOOM_MIN = 1.5, SECTION_ZOOM_MAX = 3;
+  function sectionZoom(fitW, fitH) {
+    return Math.min(Math.max(Math.min(fitW, fitH), SECTION_ZOOM_MIN), SECTION_ZOOM_MAX);
+  }
+
   // ─── geometry helpers ─────────────────────────────────────────────────────────
   // Largeur utile d'un bloc : la rangée la plus large, décalage compris
   function seatRowMaxCols(o) {
@@ -366,7 +375,9 @@
     }
 
     _updateSecBadges() {
-      const show = this._zoom <= 0.6;
+      // Desktop : jamais de nom a l'interieur des sections, le survol affiche
+      // un tooltip a la place. Mobile : on garde les badges centres.
+      const show = this._isMobile() && this._zoom <= 0.6;
       const scale = show ? Math.min(3, 1 / this._zoom) : 1;
       for (const b of this._secBadges) {
         const hovering = !!(b._wrapEl && b._wrapEl.matches(':hover'));
@@ -921,6 +932,33 @@
     }
     _hideTooltip() { this._tooltip.style.opacity='0'; this._tooltip.style.visibility='hidden'; }
 
+    // Tooltip de section, desktop en vue d'ensemble : remplace le nom affiche
+    // a l'interieur de la section.
+    _showSectionTooltip(sectionEl, sectionLabel, catId) {
+      const color = this._catColor(catId), name = this._catName(catId);
+      const cat   = this._catMap[catId];
+      const price = cat?.price != null
+        ? new Intl.NumberFormat('fr-MG').format(cat.price) + ' ' + (cat.currency || 'MGA')
+        : null;
+      this._tooltip.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex:0 0 auto"></span>
+          <span style="font-size:15px;font-weight:700;color:#111827;white-space:nowrap">${sectionLabel || name || '—'}</span>
+          ${price ? `<span style="font-size:15px;font-weight:800;color:${color};white-space:nowrap;margin-left:auto">${price}</span>` : ''}
+        </div>`;
+      const cr = this._root.getBoundingClientRect(), er = sectionEl.getBoundingClientRect();
+      this._tooltip.style.borderRadius = '12px';
+      this._tooltip.style.minWidth = '0';
+      this._tooltip.style.visibility = 'visible';
+      this._tooltip.style.opacity = '1';
+      const tw = this._tooltip.offsetWidth || 160, th = this._tooltip.offsetHeight || 44;
+      let left = er.left - cr.left + er.width/2 - tw/2;
+      let top  = er.top  - cr.top  - th - 8;
+      if (top < 4) top = er.top - cr.top + er.height + 8;
+      this._tooltip.style.left = Math.max(4, Math.min(left, this._cw - tw - 4)) + 'px';
+      this._tooltip.style.top  = top + 'px';
+    }
+
     _isMobile() { return (this._cw || window.innerWidth) < 768; }
 
     _applyFilter(catId) {
@@ -1415,7 +1453,10 @@
           const ow = cardBr.width  / this._zoom;
           const oh = cardBr.height / this._zoom;
           const pad = 20;
-          const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+          const z2  = this._isMobile() ? 2 : sectionZoom(
+            (this._cw - pad*2) / Math.max(ow, 1),
+            (this._ch - pad*2) / Math.max(oh, 1),
+          );
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep       = 1;
@@ -1682,6 +1723,15 @@
     _addSectionClick(el, sectionLabel, catId) {
       if (sectionLabel) el.dataset.section = sectionLabel;
       el.style.cursor = 'pointer';
+      // Desktop, vue d'ensemble : le nom de la section arrive au survol
+      el.addEventListener('mouseenter', () => {
+        if (this._isMobile() || this._mobileStep !== 0) return;
+        this._showSectionTooltip(el, sectionLabel, catId);
+      });
+      el.addEventListener('mouseleave', () => {
+        if (this._isMobile()) return;
+        this._hideTooltip();
+      });
       // Mobile : pointerdown se propage toujours au viewport pour que le drag
       // fonctionne à tous les steps. La distinction tap/drag se fait sur pointerup
       // via _didDrag. Desktop : stopPropagation pour éviter les drags accidentels
@@ -1704,7 +1754,12 @@
           const ow = br.width  / this._zoom;
           const oh = br.height / this._zoom;
           const pad = 32;
-          const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+          // Desktop : le plafond a 1.5 produisait un palier intermediaire d'ou il
+          // fallait rezoomer. On vise directement le niveau de detail.
+          const z2  = this._isMobile() ? 2 : sectionZoom(
+            (this._cw - pad*2) / Math.max(ow, 1),
+            (this._ch - pad*2) / Math.max(oh, 1),
+          );
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
           this._mobileStep = 2;
@@ -1815,9 +1870,13 @@
         boxShadow:'0 1px 4px rgba(0,0,0,0.18)', letterSpacing:'0.03em',
         textAlign:'center',
       });
-      centerBadge.textContent=this._catName(row.categoryId)||row.section;
-      card.appendChild(centerBadge);
-      this._secBadges.push(centerBadge);
+      // Un groupe de rangees fait partie de la section : son badge ferait
+      // doublon avec celui du bloc.
+      if (!row.isGroup) {
+        centerBadge.textContent=this._catName(row.categoryId)||row.section;
+        card.appendChild(centerBadge);
+        this._secBadges.push(centerBadge);
+      }
 
       const colW=row.shape==='rounded' ? Math.round(ss*1.5) : ss;
       const grid=css(el('div'),{display:'flex',flexDirection:'column',gap:'6px'});
