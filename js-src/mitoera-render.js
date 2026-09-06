@@ -1795,14 +1795,17 @@
       const disabled=row.disabledSeats||[], deleted=row.deletedSeats||[];
       const overrides=row.categoryOverrides||{};
 
-      const wrapper=css(el('div'),{position:'absolute',top:(row.top||0)+'px',left:(row.left||0)+'px',paddingTop:'14px',transform:`rotate(${row.rotation||0}deg)`});
+      // Pas de padding : l'editeur n'en met pas et le badge est en position absolue.
+      const wrapper=css(el('div'),{position:'absolute',top:(row.top||0)+'px',left:(row.left||0)+'px',transform:`rotate(${row.rotation||0}deg)`});
 
 
-      const card=css(el('div'),{
-        position:'relative',
-        background:rgba(color,0.08), border:`1px solid ${rgba(color,0.33)}`,
-        borderRadius:'8px', padding:'6px',
-      });
+      const card=css(el('div'), row.isGroup
+        ? { position:'relative', background:'transparent', border:'none', padding:'0' }
+        : {
+            position:'relative',
+            background:rgba(color,0.08), border:`1px solid ${rgba(color,0.33)}`,
+            borderRadius:'8px', padding:'6px',
+          });
       const centerBadge=css(el('div'),{
         display:'none', position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
@@ -1832,7 +1835,16 @@
         const ov = rowOver(row, r);
         const rowCols = rowColCount(row, r);
         const rl = rowLabelOf(row, r);
-        const line = css(el('div'),{display:'flex',gap:'6px'});
+        const line = css(el('div'),{display:'flex',gap:'6px',alignItems:'center'});
+        // Les libelles de rangee occupent 16px + 6px de gap de chaque cote dans
+        // l'editeur. Les omettre ici decalait tous les sieges de 22px vers la gauche.
+        const showLabels = !row.isGroup && ss >= 12;
+        const mkRowLabel = (align) => css(el('div'),{
+          flex:'0 0 auto', width:'16px', display:'flex', alignItems:'center',
+          justifyContent:align, fontWeight:'700', lineHeight:'1', opacity:'0.6',
+          fontSize:Math.max(7, Math.floor(ss*0.45))+'px', color, userSelect:'none',
+        });
+        if (showLabels) { const l=mkRowLabel('flex-end'); l.textContent=rl; line.appendChild(l); }
         // colOffset se compte en colonnes : on pousse la rangée avec des cases vides
         for (let i=0;i<(ov.colOffset||0);i++) {
           line.appendChild(css(el('div'),{width:colW+'px',minWidth:colW+'px',height:ss+'px'}));
@@ -1849,6 +1861,7 @@
             section:row.section||this._catName(row.categoryId), rowLabel:rl, colLabel:cl, label:lbl, catId,
           }));
         }
+        if (showLabels) { const r2=mkRowLabel('flex-start'); r2.textContent=rl; line.appendChild(r2); }
         grid.appendChild(line);
       }
       card.appendChild(grid); wrapper.appendChild(card);
