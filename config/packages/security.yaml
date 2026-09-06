@@ -44,6 +44,7 @@ security:
         - { path: ^/api/auth/resend-verification, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/forgot-password, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/reset-password, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/contact, roles: PUBLIC_ACCESS }
         - { path: ^/api/resolve-key, roles: PUBLIC_ACCESS }
         - { path: ^/api/billing/webhook, roles: PUBLIC_ACCESS }

@@ -7,6 +7,7 @@ use App\Entity\ApiKeyScope;
 use App\Entity\User;
 use App\Exception\UnauthorizedException;
 use App\Service\ApiKeyService;
+use App\Service\RefreshTokenService;
 use App\Service\UserService;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use OpenApi\Attributes as OA;
@@ -15,15 +16,17 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use InvalidArgumentException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/api/auth')]
 class AuthController extends AbstractController
 {
     public function __construct(
-        private UserService $userService,
-        private ApiKeyService $apiKeyService,
-        private JWTTokenManagerInterface $jwtManager,
+        private readonly UserService $userService,
+        private readonly ApiKeyService $apiKeyService,
+        private readonly JWTTokenManagerInterface $jwtManager,
+        private readonly RefreshTokenService $refreshTokenService,
     ) {
     }
 
@@ -51,7 +54,7 @@ class AuthController extends AbstractController
             );
 
             return $this->json($this->toResponse($user), Response::HTTP_CREATED);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
@@ -121,18 +124,60 @@ class AuthController extends AbstractController
 
     #[Route('/login', methods: ['POST'])]
     #[OA\Tag(name: 'Auth')]
-    #[OA\Post(summary: 'Connexion back-office — retourne un JWT', security: [])]
+    #[OA\Post(summary: 'Connexion back-office — retourne un JWT + refresh token', security: [])]
     #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['email', 'password'], properties: [
         new OA\Property(property: 'email', type: 'string', format: 'email', example: 'admin@mitoera.com'),
         new OA\Property(property: 'password', type: 'string', example: 'motdepasse'),
     ]))]
-    #[OA\Response(response: 200, description: 'JWT retourné', content: new OA\JsonContent(properties: [
-        new OA\Property(property: 'token', type: 'string', description: 'JWT à passer dans Authorization: Bearer'),
-    ]))]
+    #[OA\Response(response: 200, description: 'JWT + refresh token retournés')]
     #[OA\Response(response: 401, description: 'Identifiants invalides')]
     public function login(): JsonResponse
     {
-        return $this->json(['message' => 'Login endpoint']);
+        // Stub OpenAPI. La réponse réelle est produite par le firewall LexikJWT
+        // (success_handler) + AuthenticationSuccessListener qui ajoute refreshToken.
+        return $this->json(['token' => '...', 'refreshToken' => '...']);
+    }
+
+    #[Route('/refresh', methods: ['POST'])]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Post(summary: 'Renouvelle le JWT via le refresh token', security: [])]
+    #[OA\RequestBody(required: true, content: new OA\JsonContent(required: ['refreshToken'], properties: [
+        new OA\Property(property: 'refreshToken', type: 'string'),
+    ]))]
+    #[OA\Response(response: 200, description: 'Nouveau JWT + nouveau refresh token')]
+    #[OA\Response(response: 401, description: 'Refresh token invalide ou expiré')]
+    public function refresh(Request $request): JsonResponse
+    {
+        $data  = json_decode($request->getContent(), true) ?? [];
+        $rawToken = trim($data['refreshToken'] ?? '');
+
+        if (!$rawToken) {
+            return $this->json(['error' => 'refreshToken requis'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $user = $this->refreshTokenService->consume($rawToken);
+        if (!$user) {
+            return $this->json(['error' => 'Refresh token invalide ou expiré'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $token        = $this->jwtManager->create($user);
+        $refreshToken = $this->refreshTokenService->create($user);
+
+        return $this->json(['token' => $token, 'refreshToken' => $refreshToken]);
+    }
+
+    #[Route('/logout', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED')]
+    #[OA\Tag(name: 'Auth')]
+    #[OA\Post(summary: 'Révoque le refresh token de l\'utilisateur connecté')]
+    #[OA\Response(response: 200, description: 'Déconnexion réussie')]
+    public function logout(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        $this->refreshTokenService->revokeAllForUser($user);
+
+        return $this->json(['success' => true]);
     }
 
     #[Route('/me', methods: ['GET'])]
@@ -162,7 +207,7 @@ class AuthController extends AbstractController
                 $data['email'] ?? null,
             );
             return $this->json($this->toResponse($updated));
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
@@ -182,7 +227,7 @@ class AuthController extends AbstractController
                 $data['newPassword'] ?? '',
             );
             return $this->json(['success' => true]);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
@@ -195,7 +240,7 @@ class AuthController extends AbstractController
 
         try {
             $this->userService->verifyEmail($token);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return new Response(
                 '<script>window.location="' . $boUrl . '/login?error=' . urlencode($e->getMessage()) . '"</script>',
                 Response::HTTP_FOUND
@@ -251,7 +296,7 @@ class AuthController extends AbstractController
                 $data['password'] ?? '',
             );
             return $this->json(['success' => true]);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
