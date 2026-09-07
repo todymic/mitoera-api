@@ -14,6 +14,7 @@
 
   // ─── label helpers (port of place-ui/src/services/seatLabel.js) ──────────────
 
+  function cls(node, name) { node.classList.add(name); return node; }
   function _letters(n, upper) {
     let s = '', x = n;
     do { s = String.fromCharCode((upper ? 65 : 97) + (x % 26)) + s; x = Math.floor(x / 26) - 1; } while (x >= 0);
@@ -59,6 +60,19 @@
   function sectionZoom(fitW, fitH) {
     return Math.min(Math.max(Math.min(fitW, fitH), SECTION_ZOOM_MIN), SECTION_ZOOM_MAX);
   }
+
+  // Mobile : palier intermediaire "zoom section". On voit la section entiere,
+  // assez pres pour lire les numeros de siege mais pas encore le niveau detail.
+  const MOBILE_SECTION_ZOOM_MIN = 0.9, MOBILE_SECTION_ZOOM_MAX = 1.3;
+  function mobileSectionZoom(fitW, fitH) {
+    return Math.min(Math.max(Math.min(fitW, fitH), MOBILE_SECTION_ZOOM_MIN), MOBILE_SECTION_ZOOM_MAX);
+  }
+  const MOBILE_DETAIL_ZOOM = 2.2;
+
+  // A partir de quel zoom on affiche quoi. Le libelle de rangee n'apparait qu'au
+  // niveau detail : au palier section il surchargerait la vue.
+  const ZOOM_SEAT_NUMBER = 0.85;
+  const ZOOM_ROW_LABEL   = 1.4;
 
   // ─── geometry helpers ─────────────────────────────────────────────────────────
   // Largeur utile d'un bloc : la rangée la plus large, décalage compris
@@ -311,6 +325,7 @@
       vp.appendChild(canvas);
       this._canvas = canvas;
 
+      this._injectLabelStyles();
       this._tooltip = this._buildTooltip(root);
       this._buildFullscreenBtn(root);
       this._buildControls(root);
@@ -391,6 +406,8 @@
     }
 
     _updateSecBadges() {
+      // Numeros de siege et libelles de rangee suivent le meme cycle de vie
+      this._updateLabelDetail();
       // Desktop : jamais de nom a l'interieur des sections, le survol affiche
       // un tooltip a la place. Mobile : on garde les badges centres.
       const show = this._isMobile() && this._zoom <= 0.6;
@@ -865,6 +882,24 @@
     }
 
     // ── tooltip ──────────────────────────────────────────────────────────────────
+
+    // Le numero de siege est le texte du siege lui-meme : on le rend transparent
+    // plutot que de le retirer, pour ne rien changer a la mise en page.
+    _injectLabelStyles() {
+      if (document.getElementById('mr-label-styles')) return;
+      const st = document.createElement('style');
+      st.id = 'mr-label-styles';
+      st.textContent =
+        '.mr-no-seatnum [data-sk]{color:transparent!important}' +
+        '.mr-no-rowlabel .mr-rowlabel{visibility:hidden}';
+      document.head.appendChild(st);
+    }
+
+    _updateLabelDetail() {
+      if (!this._canvas) return;
+      this._canvas.classList.toggle('mr-no-seatnum',  this._zoom < ZOOM_SEAT_NUMBER);
+      this._canvas.classList.toggle('mr-no-rowlabel', this._zoom < ZOOM_ROW_LABEL);
+    }
 
     _buildTooltip(root) {
       const tip = css(el('div'), {
@@ -1705,21 +1740,28 @@
               const oy = (cardBr.top  - canvasBr.top)  / this._zoom;
               const ow = cardBr.width  / this._zoom;
               const oh = cardBr.height / this._zoom;
-              const pad = 32;
-              const z2  = this._isMobile() ? 2 : sectionZoom(
-                (this._cw - pad*2) / Math.max(ow, 1),
-                (this._ch - pad*2) / Math.max(oh, 1),
-              );
+              const pad  = 32;
+              const fitW = (this._cw - pad*2) / Math.max(ow, 1);
+              const fitH = (this._ch - pad*2) / Math.max(oh, 1);
+              const z2   = this._isMobile() ? mobileSectionZoom(fitW, fitH) : sectionZoom(fitW, fitH);
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-              this._mobileStep = 2;
+              this._mobileStep = this._isMobile() ? 1 : 2;
               this._currentSectionEl = card;
               this._hideTooltip();
               this._animateZoom(z2, px2, py2, 350);
             } else {
-              this._mobileStep = 2;
-              this._zoomToLevel(Math.max(this._zoom * 1.6, 3), cx, cy);
+              this._mobileStep = this._isMobile() ? 1 : 2;
+              this._zoomToLevel(this._isMobile() ? MOBILE_SECTION_ZOOM_MAX : Math.max(this._zoom * 1.6, 3), cx, cy);
             }
+          } else if (this._isMobile() && step === 1) {
+            // Palier section -> detail : on approche sur le siege avant d'ouvrir
+            // la modale, pour que le plan reste lisible derriere.
+            const card = s.closest('[data-section]');
+            if (card) this._currentSectionEl = card;
+            this._mobileStep = 2;
+            this._zoomToLevel(MOBILE_DETAIL_ZOOM, cx, cy);
+            this._showMobileModal(s, {...tipInfo, key, planStatus});
           } else {
             // step >= 2 → modal mobile ou tooltip desktop
             const card = s.closest('[data-section]');
@@ -1764,16 +1806,16 @@
           const oy = (br.top  - canvasBr.top)  / this._zoom;
           const ow = br.width  / this._zoom;
           const oh = br.height / this._zoom;
-          const pad = 32;
+          const pad  = 32;
+          const fitW = (this._cw - pad*2) / Math.max(ow, 1);
+          const fitH = (this._ch - pad*2) / Math.max(oh, 1);
           // Desktop : le plafond a 1.5 produisait un palier intermediaire d'ou il
-          // fallait rezoomer. On vise directement le niveau de detail.
-          const z2  = this._isMobile() ? 2 : sectionZoom(
-            (this._cw - pad*2) / Math.max(ow, 1),
-            (this._ch - pad*2) / Math.max(oh, 1),
-          );
+          // fallait rezoomer, on vise directement le detail.
+          // Mobile : au contraire, on s'arrete au palier section.
+          const z2  = this._isMobile() ? mobileSectionZoom(fitW, fitH) : sectionZoom(fitW, fitH);
           const px2 = -(ox + ow/2) * z2 + this._cw / 2;
           const py2 = -(oy + oh/2) * z2 + this._ch / 2;
-          this._mobileStep = 2;
+          this._mobileStep = this._isMobile() ? 1 : 2;
           this._currentSectionEl = el;
           this._hideTooltip();
           this._animateZoom(z2, px2, py2, 380);
@@ -1909,7 +1951,7 @@
         // Les libelles de rangee occupent 16px + 6px de gap de chaque cote dans
         // l'editeur. Les omettre ici decalait tous les sieges de 22px vers la gauche.
         const showLabels = !row.isGroup && ss >= 12;
-        const mkRowLabel = (align) => css(el('div'),{
+        const mkRowLabel = (align) => css(cls(el('div'),'mr-rowlabel'),{
           flex:'0 0 auto', width:'16px', display:'flex', alignItems:'center',
           justifyContent:align, fontWeight:'700', lineHeight:'1', opacity:'0.6',
           fontSize:Math.max(7, Math.floor(ss*0.45))+'px', color, userSelect:'none',
