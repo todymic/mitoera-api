@@ -253,40 +253,12 @@ class EventService
 
             // Bloc de sièges nominatifs (format BO admin)
             if ($internalType === 'seatRow') {
-                $section  = is_array($object) ? ($object['section']  ?? $object['label'] ?? $key ?? 'S') : ($object->section ?? $object->label ?? $key ?? 'S');
-                $rows     = is_array($object) ? ($object['rows']     ?? 1) : ($object->rows ?? 1);
-                $cols     = is_array($object) ? ($object['cols']     ?? 1) : ($object->cols ?? 1);
-                $rowFmt   = is_array($object) ? ($object['rowFormat']      ?? 'A-Z') : ($object->rowFormat ?? 'A-Z');
-                $rowDir   = is_array($object) ? ($object['rowDirection']   ?? 'normal') : ($object->rowDirection ?? 'normal');
-                $colFmt   = is_array($object) ? ($object['colFormat']      ?? '1-9') : ($object->colFormat ?? '1-9');
-                $colDir   = is_array($object) ? ($object['colDirection']   ?? 'normal') : ($object->colDirection ?? 'normal');
-                $disabled = is_array($object) ? ($object['disabledSeats'] ?? []) : ($object->disabledSeats ?? []);
-                $deleted  = is_array($object) ? ($object['deletedSeats']  ?? []) : ($object->deletedSeats  ?? []);
-                // Réglages par rangée posés dans l'éditeur : nombre de sièges, libellé
-                // de rangée et départ de numérotation des colonnes. Sans eux, les clés
-                // générées ici ne correspondent pas à celles affichées sur le plan.
-                $rowOver  = $this->toArray(is_array($object) ? ($object['rowOverrides'] ?? []) : ($object->rowOverrides ?? []));
-
-                for ($r = 0; $r < $rows; $r++) {
-                    $over       = $this->toArray($rowOver[$r] ?? $rowOver[(string) $r] ?? []);
-                    $rowCols    = isset($over['cols'])       ? (int) $over['cols']       : $cols;
-                    $colStartAt = isset($over['colStartAt']) ? (int) $over['colStartAt'] : 0;
-                    $rowLabel   = isset($over['label']) && $over['label'] !== null && $over['label'] !== ''
-                        ? (string) $over['label']
-                        : $this->axisLabel($r, $rows, $rowFmt, $rowDir);
-
-                    for ($c = 0; $c < $rowCols; $c++) {
-                        $posKey = "$r-$c";
-                        if (in_array($posKey, $disabled)) continue;
-                        if (in_array($posKey, $deleted)) continue;
-                        $colLabel = $this->axisLabel($c, $rowCols, $colFmt, $colDir, $colStartAt);
-                        $seatKey  = "$section-$rowLabel-$colLabel";
-                        $seat = new EventSeat();
-                        $seat->setEvent($event);
-                        $seat->setSeatKey($seatKey);
-                        $seat->setStatus(SeatStatus::AVAILABLE);
-                        $this->em->persist($seat);
-                    }
+                foreach ($this->seatRowKeys($object) as $seatKey) {
+                    $seat = new EventSeat();
+                    $seat->setEvent($event);
+                    $seat->setSeatKey($seatKey);
+                    $seat->setStatus(SeatStatus::AVAILABLE);
+                    $this->em->persist($seat);
                 }
                 continue;
             }
@@ -349,6 +321,52 @@ class EventService
                 }
             }
         }
+    }
+
+    /**
+     * Les clés de sièges produites par un bloc.
+     *
+     * Contrat partagé avec le module JS du back-office
+     * (mitoera-bo/src/services/seatPlan.js) et le renderer acheteur
+     * (js-src/seat-plan.js). Les trois rejouent tests/fixtures/seat-plan.json :
+     * modifier l'une sans les autres casse au moins un test.
+     *
+     * @return string[]
+     */
+    public function seatRowKeys(mixed $object): array
+    {
+        $o        = $this->toArray($object);
+        $section  = $o['section'] ?? $o['label'] ?? $o['key'] ?? 'S';
+        $rows     = (int) ($o['rows'] ?? 1);
+        $cols     = (int) ($o['cols'] ?? 1);
+        $rowFmt   = $o['rowFormat']    ?? 'A-Z';
+        $rowDir   = $o['rowDirection'] ?? 'normal';
+        $colFmt   = $o['colFormat']    ?? '1-9';
+        $colDir   = $o['colDirection'] ?? 'normal';
+        $disabled = $this->toArray($o['disabledSeats'] ?? []);
+        $deleted  = $this->toArray($o['deletedSeats']  ?? []);
+        $rowOver  = $this->toArray($o['rowOverrides']  ?? []);
+
+        $keys = [];
+        for ($r = 0; $r < $rows; $r++) {
+            // Réglages propres à la rangée : nombre de sièges, libellé et départ
+            // de numérotation. Les ignorer ferait diverger ces clés de celles
+            // affichées sur le plan.
+            $ov         = $this->toArray($rowOver[$r] ?? $rowOver[(string) $r] ?? []);
+            $rowCols    = isset($ov['cols'])       ? (int) $ov['cols']       : $cols;
+            $colStartAt = isset($ov['colStartAt']) ? (int) $ov['colStartAt'] : 0;
+            $rowLabel   = isset($ov['label']) && $ov['label'] !== null && $ov['label'] !== ''
+                ? (string) $ov['label']
+                : $this->axisLabel($r, $rows, $rowFmt, $rowDir);
+
+            for ($c = 0; $c < $rowCols; $c++) {
+                $posKey = "$r-$c";
+                if (in_array($posKey, $disabled)) continue;
+                if (in_array($posKey, $deleted)) continue;
+                $keys[] = "$section-$rowLabel-" . $this->axisLabel($c, $rowCols, $colFmt, $colDir, $colStartAt);
+            }
+        }
+        return $keys;
     }
 
     /** Les objets du plan arrivent tantôt en tableau associatif, tantôt en stdClass. */

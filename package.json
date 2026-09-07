@@ -1,24 +1,25 @@
 {
-    "name": "mitoera-api",
-    "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "build": "vite build && BUILD_TARGET=render vite build",
-        "dev": "vite build --watch",
-        "test:e2e": "playwright test",
-        "test:e2e:ui": "playwright test --ui"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/todymic/mitoera-api.git"
-    },
-    "private": true,
-    "dependencies": {
-        "terser": "^5.49.2",
-        "vite": "^8.2.1"
-    },
-    "devDependencies": {
-        "@playwright/test": "^1.62.1"
-    }
+  "name": "mitoera-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "vite build && BUILD_TARGET=render vite build",
+    "dev": "vite build --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:contract": "node --test tests/js/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/todymic/mitoera-api.git"
+  },
+  "private": true,
+  "dependencies": {
+    "terser": "^5.49.2",
+    "vite": "^8.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
 }

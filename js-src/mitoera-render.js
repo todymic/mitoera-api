@@ -9,46 +9,17 @@
  *   r.getSelectedSeats();   // → [{ seatKey, catId, catColor, catName }]
  *   r.destroy();
  */
+import {
+  axisLabel, rowOver, rowColCount, rowStartAt, rowColOffset,
+  rowLabelOf, colLabelOf, seatRowKey, displayOrder, seatRowMaxCols,
+} from './seat-plan.js';
+
 (function (global) {
   'use strict';
 
-  // ─── label helpers (port of place-ui/src/services/seatLabel.js) ──────────────
+  // Les formules de libelles et de cles vivent dans ./seat-plan.js, verrouillees
+  // par le jeu d'essai partage avec le back-office et EventService.php.
 
-  function cls(node, name) { node.classList.add(name); return node; }
-  function _letters(n, upper) {
-    let s = '', x = n;
-    do { s = String.fromCharCode((upper ? 65 : 97) + (x % 26)) + s; x = Math.floor(x / 26) - 1; } while (x >= 0);
-    return s;
-  }
-  const _ROM = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
-  function _roman(n) { let v = n+1, r=''; for(const[a,b] of _ROM){while(v>=a){r+=b;v-=a;}} return r||String(n+1); }
-  function axisLabel(idx, total, fmt, dir, startAt) {
-    const i = (dir === 'reversed' ? Math.max(0, total - 1 - idx) : idx) + (startAt || 0);
-    return fmt === 'A-Z' ? _letters(i,true) : fmt === 'a-z' ? _letters(i,false) : fmt === 'I-X' ? _roman(i) : String(i+1);
-  }
-  // ─── seat-key formulas (mirrors EventService.php) ────────────────────────────
-  // Réglages posés par rangée dans l'éditeur (nombre de sièges, libellé, départ de
-  // numérotation, décalage). Ignorer ces valeurs ferait diverger les clés du widget
-  // de celles écrites en base par EventService.
-  function rowOver(obj, ri) { return (obj.rowOverrides || {})[ri] || {}; }
-  function rowColCount(obj, ri) {
-    const o = rowOver(obj, ri);
-    return o.cols != null ? o.cols : (obj.cols || 1);
-  }
-  function rowLabelOf(obj, ri) {
-    const o = rowOver(obj, ri);
-    return (o.label != null && o.label !== '')
-      ? String(o.label)
-      : axisLabel(ri, obj.rows, obj.rowFormat, obj.rowDirection);
-  }
-  function colLabelOf(obj, ri, ci) {
-    const o = rowOver(obj, ri);
-    return axisLabel(ci, rowColCount(obj, ri), obj.colFormat, obj.colDirection, o.colStartAt || 0);
-  }
-  function seatRowKey(obj, ri, ci) {
-    const s = obj.section||obj.label||obj.id||'S';
-    return `${s}-${rowLabelOf(obj, ri)}-${colLabelOf(obj, ri, ci)}`;
-  }
   function tableSectionKey(obj, ti, si) { return `${obj.section||obj.label||obj.id||'TS'}-${ti+1}-${si+1}`; }
   function tableZoneKey(obj, i)          { return `${obj.section||obj.label||obj.id||'T'}-${i+1}`; }
 
@@ -77,17 +48,6 @@
   const ZOOM_ROW_LABEL   = 1.4;
 
   // ─── geometry helpers ─────────────────────────────────────────────────────────
-  // Largeur utile d'un bloc : la rangée la plus large, décalage compris
-  function seatRowMaxCols(o) {
-    const over = o.rowOverrides || {};
-    let max = 0;
-    for (let r=0;r<(o.rows||1);r++) {
-      const ov = over[r] || {};
-      max = Math.max(max, (ov.cols != null ? ov.cols : (o.cols||1)) + (ov.colOffset||0));
-    }
-    return max || (o.cols||1);
-  }
-
   const TS_PAD = 4;
   function tableZoneSize(t)    { return (t.tableSize||30) + 2*(t.seatSize||15) + 16; }
   function tsSectionUnit(ts)   { return (ts.tableSize||30) + 2*(ts.seatSize||15) + 16; }

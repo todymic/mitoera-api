@@ -56,6 +56,42 @@ class EventSeatKeyTest extends TestCase
         $this->assertSame('AA', $this->call('axisLabel', [26, 30, 'A-Z', 'normal']));
     }
 
+    /**
+     * Rejoue le contrat partagé. Le module JS du back-office et le renderer
+     * acheteur rejouent le MÊME fichier : c'est ce qui empêche les trois
+     * implémentations de diverger.
+     */
+    public function testSharedFixture(): void
+    {
+        $path = __DIR__ . '/../../fixtures/seat-plan.json';
+        $this->assertFileExists($path, 'jeu d\'essai partagé manquant');
+        $fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+
+        $ref = new \ReflectionClass(EventService::class);
+        $svc = $ref->newInstanceWithoutConstructor();
+
+        $this->assertNotEmpty($fixture['cases']);
+        foreach ($fixture['cases'] as $case) {
+            $this->assertSame(
+                $case['keys'],
+                $svc->seatRowKeys($case['row']),
+                'cas : ' . $case['name'],
+            );
+        }
+    }
+
+    /** Les objets du plan arrivent en tableau ou en stdClass selon le décodage. */
+    public function testSeatRowKeysAcceptsStdClass(): void
+    {
+        $ref = new \ReflectionClass(EventService::class);
+        $svc = $ref->newInstanceWithoutConstructor();
+        $row = json_decode(json_encode([
+            'section' => 'S', 'rows' => 1, 'cols' => 2,
+            'rowOverrides' => ['0' => ['colStartAt' => 2]],
+        ]));
+        $this->assertSame(['S-A-3', 'S-A-4'], $svc->seatRowKeys($row));
+    }
+
     public function testToArrayAcceptsBothShapes(): void
     {
         $this->assertSame(['cols' => 3], $this->call('toArray', [['cols' => 3]]));

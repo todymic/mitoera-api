@@ -1,0 +1,135 @@
+{
+  "_comment": "Contrat partagé par les trois implémentations des clés de sièges : le module JS du back-office (src/services/seatPlan.js), le renderer acheteur (mitoera-api/js-src) et EventService.php. Chacune a son propre test qui rejoue ce fichier. Toute divergence future casse au moins un des trois.",
+  "cases": [
+    {
+      "name": "bloc simple, aucun réglage par rangée",
+      "row": {
+        "id": "sr1", "section": "PARTERRE", "rows": 2, "cols": 3,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal"
+      },
+      "keys": [
+        "PARTERRE-A-1", "PARTERRE-A-2", "PARTERRE-A-3",
+        "PARTERRE-B-1", "PARTERRE-B-2", "PARTERRE-B-3"
+      ]
+    },
+    {
+      "name": "sens inversé sur les deux axes",
+      "row": {
+        "id": "sr2", "section": "BALCON", "rows": 2, "cols": 2,
+        "rowFormat": "A-Z", "rowDirection": "reversed",
+        "colFormat": "1-9", "colDirection": "reversed"
+      },
+      "keys": [
+        "BALCON-B-2", "BALCON-B-1",
+        "BALCON-A-2", "BALCON-A-1"
+      ]
+    },
+    {
+      "name": "nombre de sièges réduit sur une rangée",
+      "row": {
+        "id": "sr3", "section": "VIP", "rows": 2, "cols": 4,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal",
+        "rowOverrides": { "0": { "cols": 2 } }
+      },
+      "keys": [
+        "VIP-A-1", "VIP-A-2",
+        "VIP-B-1", "VIP-B-2", "VIP-B-3", "VIP-B-4"
+      ]
+    },
+    {
+      "name": "départ de numérotation décalé, cas du groupe posé à gauche",
+      "row": {
+        "id": "sr4", "section": "RESA", "rows": 1, "cols": 3,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal",
+        "rowOverrides": { "0": { "colStartAt": 3 } }
+      },
+      "keys": ["RESA-A-4", "RESA-A-5", "RESA-A-6"]
+    },
+    {
+      "name": "libellé de rangée forcé",
+      "row": {
+        "id": "sr5", "section": "RESA", "rows": 1, "cols": 2,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal",
+        "rowOverrides": { "0": { "label": "C" } }
+      },
+      "keys": ["RESA-C-1", "RESA-C-2"]
+    },
+    {
+      "name": "sièges désactivés et supprimés exclus des clés",
+      "row": {
+        "id": "sr6", "section": "TRIBUNE", "rows": 1, "cols": 4,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal",
+        "disabledSeats": ["0-1"],
+        "deletedSeats": ["0-3"]
+      },
+      "keys": ["TRIBUNE-A-1", "TRIBUNE-A-3"]
+    },
+    {
+      "name": "formats romain et minuscule",
+      "row": {
+        "id": "sr7", "section": "LOGE", "rows": 2, "cols": 2,
+        "rowFormat": "I-X", "rowDirection": "normal",
+        "colFormat": "a-z", "colDirection": "normal"
+      },
+      "keys": ["LOGE-I-a", "LOGE-I-b", "LOGE-II-a", "LOGE-II-b"]
+    },
+    {
+      "name": "rowOrder ne change que l'affichage, pas les clés",
+      "row": {
+        "id": "sr8", "section": "ORDRE", "rows": 3, "cols": 1,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal",
+        "rowOrder": [2, 0, 1]
+      },
+      "keys": ["ORDRE-A-1", "ORDRE-B-1", "ORDRE-C-1"],
+      "displayOrder": [2, 0, 1]
+    },
+    {
+      "name": "section absente : repli sur le libellé puis l'identifiant",
+      "row": {
+        "id": "sr9", "label": "Bloc sans section", "rows": 1, "cols": 1,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "1-9", "colDirection": "normal"
+      },
+      "keys": ["Bloc sans section-A-1"]
+    },
+    {
+      "name": "au-delà de Z la séquence continue en AA",
+      "row": {
+        "id": "sr10", "section": "LONG", "rows": 1, "cols": 2,
+        "rowFormat": "A-Z", "rowDirection": "normal",
+        "colFormat": "A-Z", "colDirection": "normal",
+        "rowOverrides": { "0": { "colStartAt": 25 } }
+      },
+      "keys": ["LONG-A-Z", "LONG-A-AA"]
+    }
+  ],
+  "geometry": [
+    {
+      "name": "bloc : carte de 7px d'inset, sièges de 22px espacés de 6px",
+      "row": { "id": "g1", "rows": 2, "cols": 3, "seatSize": 22 },
+      "size": { "w": 92, "h": 64 },
+      "rowTopOffset": [7, 35]
+    },
+    {
+      "name": "groupe : aucune carte, donc aucun inset",
+      "row": { "id": "g2", "rows": 1, "cols": 3, "seatSize": 22, "isGroup": true },
+      "size": { "w": 78, "h": 22 },
+      "rowTopOffset": [0]
+    },
+    {
+      "name": "largeur prise sur la rangée la plus large, décalage compris",
+      "row": {
+        "id": "g3", "rows": 2, "cols": 2, "seatSize": 20,
+        "rowOverrides": { "1": { "cols": 3, "colOffset": 2 } }
+      },
+      "size": { "w": 138, "h": 60 },
+      "rowTopOffset": [7, 33]
+    }
+  ]
+}
