@@ -320,6 +320,22 @@
       this._buildLegend(root);
       this._buildResume(root);
 
+      // Tooltip de section au survol (desktop, vue d'ensemble). Delegue au
+      // viewport : pointerover bulle, donc ca marche quelles que soient les
+      // couches empilees au-dessus des sections.
+      vp.addEventListener('pointerover', (e) => {
+        if (this._isMobile() || this._mobileStep !== 0) { this._hoverSectionEl = null; return; }
+        const secEl = e.target && e.target.closest ? e.target.closest('[data-section]') : null;
+        if (secEl === this._hoverSectionEl) return;
+        this._hoverSectionEl = secEl;
+        if (secEl) this._showSectionTooltip(secEl, secEl.dataset.section, secEl.dataset.plancat || null);
+        else this._hideTooltip();
+      });
+      vp.addEventListener('pointerleave', () => {
+        this._hoverSectionEl = null;
+        if (!this._isMobile()) this._hideTooltip();
+      });
+
       vp.addEventListener('wheel',       this._onWheel.bind(this), {passive:false});
       vp.addEventListener('pointerdown', this._onPointerDown.bind(this));
       document.addEventListener('pointermove', this._boundMove);
@@ -1690,7 +1706,10 @@
               const ow = cardBr.width  / this._zoom;
               const oh = cardBr.height / this._zoom;
               const pad = 32;
-              const z2  = this._isMobile() ? 2 : Math.min((this._cw - pad*2) / Math.max(ow, 1), (this._ch - pad*2) / Math.max(oh, 1), 1.5);
+              const z2  = this._isMobile() ? 2 : sectionZoom(
+                (this._cw - pad*2) / Math.max(ow, 1),
+                (this._ch - pad*2) / Math.max(oh, 1),
+              );
               const px2 = -(ox + ow/2) * z2 + this._cw / 2;
               const py2 = -(oy + oh/2) * z2 + this._ch / 2;
               this._mobileStep = 2;
@@ -1724,14 +1743,6 @@
       if (sectionLabel) el.dataset.section = sectionLabel;
       el.style.cursor = 'pointer';
       // Desktop, vue d'ensemble : le nom de la section arrive au survol
-      el.addEventListener('mouseenter', () => {
-        if (this._isMobile() || this._mobileStep !== 0) return;
-        this._showSectionTooltip(el, sectionLabel, catId);
-      });
-      el.addEventListener('mouseleave', () => {
-        if (this._isMobile()) return;
-        this._hideTooltip();
-      });
       // Mobile : pointerdown se propage toujours au viewport pour que le drag
       // fonctionne à tous les steps. La distinction tap/drag se fait sur pointerup
       // via _didDrag. Desktop : stopPropagation pour éviter les drags accidentels
