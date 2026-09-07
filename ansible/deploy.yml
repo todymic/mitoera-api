@@ -3,6 +3,43 @@
   hosts: production
   gather_facts: false
 
+  # Pré-vol : un conteneur *-blue ou *-old laissé par un déploiement interrompu
+  # fait échouer le blue-green sur un conflit de nom — APRÈS que le rôle api a
+  # supprimé les autres conteneurs (remove_orphans sur la stack Traefik). La
+  # production tombe alors et n'est rétablie que par un second passage complet.
+  # On refuse plutôt que de compter sur la vigilance de l'opérateur.
+  pre_tasks:
+    - name: Rechercher les conteneurs résiduels d'un déploiement interrompu
+      shell: |
+        docker ps -a --format '{% raw %}{{.Names}}{% endraw %}' | grep -E '\-blue$|\-old$' || true
+      register: stale_containers
+      changed_when: false
+      become: true
+
+    - name: Supprimer les résidus (uniquement si -e clean_stale=true)
+      shell: docker rm -f {{ item }}
+      loop: "{{ stale_containers.stdout_lines }}"
+      become: true
+      when:
+        - stale_containers.stdout_lines | length > 0
+        - clean_stale | default(false) | bool
+
+    - name: Refuser le déploiement tant qu'il reste des résidus
+      fail:
+        msg: |
+          Conteneurs résiduels d'un déploiement interrompu :
+            {{ stale_containers.stdout_lines | join(', ') }}
+
+          Les laisser en place fait échouer le blue-green sur un conflit de nom,
+          après que le rôle api a déjà supprimé base, nginx, ui, bo, admin, worker
+          et crons — la production tombe jusqu'au prochain passage complet.
+
+          Relancer en les nettoyant d'abord :
+            ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e clean_stale=true
+      when:
+        - stale_containers.stdout_lines | length > 0
+        - not (clean_stale | default(false) | bool)
+
   roles:
     - common
     - api
