@@ -1983,7 +1983,10 @@
           const cl=colLabelOf(row, r, c);
           const lbl=labelOverrides[pk] ?? (rl + cl);
           const key=seatRowKey(row,r,c);
-          line.appendChild(this._makeSeat(key,catId,ps,ss,row.shape,lbl,{
+          // Dans le siege on n'ecrit que le numero de colonne, comme l'editeur :
+          // la rangee est deja donnee par les libelles de part et d'autre.
+          // Le libelle complet reste dans le tooltip et la modale.
+          line.appendChild(this._makeSeat(key,catId,ps,ss,row.shape,cl,{
             section:row.section||this._catName(row.categoryId), rowLabel:rl, colLabel:cl, label:lbl, catId,
           }));
         }
