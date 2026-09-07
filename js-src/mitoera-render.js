@@ -63,9 +63,11 @@
 
   // Mobile : palier intermediaire "zoom section". On voit la section entiere,
   // assez pres pour lire les numeros de siege mais pas encore le niveau detail.
-  const MOBILE_SECTION_ZOOM_MIN = 0.9, MOBILE_SECTION_ZOOM_MAX = 1.3;
+  // Pas de plancher : la section doit tenir entierement a l'ecran, largeur
+  // comprise. Un plancher faisait deborder les sections larges.
+  const MOBILE_SECTION_ZOOM_MAX = 1.3;
   function mobileSectionZoom(fitW, fitH) {
-    return Math.min(Math.max(Math.min(fitW, fitH), MOBILE_SECTION_ZOOM_MIN), MOBILE_SECTION_ZOOM_MAX);
+    return Math.max(0.05, Math.min(fitW, fitH, MOBILE_SECTION_ZOOM_MAX));
   }
   const MOBILE_DETAIL_ZOOM = 2.2;
 
@@ -596,6 +598,10 @@
         this._panX = midX - r * (this._pinchMidX - this._pinchPanX) - this._pinchMidX + midX;
         this._panY = midY - r * (this._pinchMidY - this._pinchPanY) - this._pinchMidY + midY;
         this._zoom = nz;
+        // Un pincement est un geste, jamais un tap : sans ce marquage, relacher
+        // le doigt sur un siege apres un zoom out declenchait le zoom detail.
+        this._didDrag = true;
+        this._hideTooltip();
         this._applyTransform();
         return;
       }
@@ -1696,7 +1702,11 @@
         visibility:planStatus==='deleted' ? 'hidden' : 'visible',
         boxShadow: this._selected.has(key) ? this._catColor(catId)+' 0px 0px 0px 1.5px, rgba(255,255,255,0.9) 0px 0px 0px 2px inset' : 'none',
       });
-      const displayLabel = '';
+      // Le libelle etait calcule puis jete (displayLabel = ''), d'ou des sieges
+      // muets a tous les zooms. Meme seuil que l'editeur : en dessous de 14px de
+      // siege, le numero ne tient pas. La visibilite selon le zoom est geree par
+      // la classe mr-no-seatnum posee sur le canvas.
+      const displayLabel = size >= 14 ? (labelText || '') : '';
       s.dataset.sk     = key;
       s.dataset.cat    = catId;
       s.dataset.ps     = planStatus;
@@ -1719,7 +1729,11 @@
             s.style.boxShadow = 'none';
           }
         });
-        s.addEventListener('pointerdown', () => { this._didDrag=false; });
+        // Ne remettre a zero que pour un vrai premier contact : pendant un geste
+        // a deux doigts, le second doigt effacait le drapeau de drag.
+        s.addEventListener('pointerdown', () => {
+          if (this._activePointers.size === 0) this._didDrag = false;
+        });
         s.addEventListener('pointerup', (e) => {
           e.stopPropagation();
           this._onPointerUp(e);
