@@ -72,6 +72,12 @@ import {
   // ─── DOM / color helpers ──────────────────────────────────────────────────────
   function el(tag) { return document.createElement(tag); }
   function css(e, s) { Object.assign(e.style, s); return e; }
+  // Utilise par mkRowLabel pour poser .mr-rowlabel, que la feuille de style du
+  // widget cible (.mr-no-rowlabel .mr-rowlabel{visibility:hidden}). Le helper
+  // n'avait jamais ete ecrit : des qu'un plan affichait ses libelles de rangee
+  // (rangee non groupee et sieges >= 12px), le rendu s'interrompait sur
+  // "cls is not defined" et seul le chargeur restait a l'ecran.
+  function cls(e, c) { e.className = c; return e; }
   function rgba(color, a) {
     if (!color||color[0]!=='#') return `rgba(156,163,175,${a})`;
     return `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${a})`;
