@@ -104,7 +104,7 @@ services:
             $secretKey:     '%env(string:STRIPE_SECRET_KEY)%'
             $webhookSecret: '%env(string:STRIPE_WEBHOOK_SECRET)%'
             $pricePlus:     '%env(string:STRIPE_PRICE_PLUS)%'
-            $priceMax:      '%env(string:STRIPE_PRICE_MAX)%'
+            $pricePro:      '%env(string:STRIPE_PRICE_PRO)%'
 
     # UserService
     App\Service\UserService:

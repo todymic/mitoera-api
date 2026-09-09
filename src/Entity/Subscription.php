@@ -12,7 +12,7 @@ class Subscription
 {
     public const PLAN_BASE = 'base';
     public const PLAN_PLUS = 'plus';
-    public const PLAN_MAX  = 'max';
+    public const PLAN_PRO  = 'pro';
 
     public const PLANS = [
         self::PLAN_BASE => [
@@ -25,15 +25,15 @@ class Subscription
         self::PLAN_PLUS => [
             'label'               => 'Plus',
             'annual_seat_quota'   => 2500,
-            'surplus_price_cents' => 15,
+            'surplus_price_cents' => 12,
             'price_env_key'       => 'STRIPE_PRICE_PLUS',
             'pay_per_use'         => false,
         ],
-        self::PLAN_MAX => [
-            'label'               => 'Max',
-            'annual_seat_quota'   => 5000,
-            'surplus_price_cents' => 15,
-            'price_env_key'       => 'STRIPE_PRICE_MAX',
+        self::PLAN_PRO => [
+            'label'               => 'Pro',
+            'annual_seat_quota'   => 50000,
+            'surplus_price_cents' => 10,
+            'price_env_key'       => 'STRIPE_PRICE_PRO',
             'pay_per_use'         => false,
         ],
     ];

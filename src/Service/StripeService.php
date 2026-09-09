@@ -21,7 +21,7 @@ class StripeService
         private readonly string                      $secretKey,
         private readonly string                      $webhookSecret,
         private readonly string                      $pricePlus,
-        private readonly string                      $priceMax,
+        private readonly string                      $pricePro,
         private readonly EntityManagerInterface      $em,
         private readonly SubscriptionRepository      $subscriptionRepo,
         private readonly SubscriptionEventRepository $eventRepo,
@@ -522,7 +522,7 @@ class StripeService
     {
         return match ($planKey) {
             Subscription::PLAN_PLUS => $this->pricePlus,
-            Subscription::PLAN_MAX  => $this->priceMax,
+            Subscription::PLAN_PRO  => $this->pricePro,
             default => throw new \InvalidArgumentException("Unknown plan: $planKey"),
         };
     }
