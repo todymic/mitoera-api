@@ -1,3 +1,5 @@
+name: mitoera
+
 services:
   traefik:
     image: traefik:v3
@@ -15,7 +17,7 @@ services:
 
 volumes:
   acme_data:
-
+    name: api_acme_data
 networks:
   web:
     external: true

@@ -1,3 +1,5 @@
+name: mitoera
+
 ## Production — à lancer après : docker compose -f docker-compose.traefik.yml up -d
 ## (ou équivalent prod avec traefik.prod.yml sur le serveur)
 ##
@@ -305,13 +307,25 @@ services:
     command: redis-server --appendonly yes
 
 volumes:
+  # Noms épinglés et externes : ces volumes existent déjà sur le serveur et ne
+  # doivent pas être recréés. Sans épinglage, Compose les préfixerait du nom de
+  # projet et brancherait les services sur des volumes neufs et vides.
   database_data:
+    name: mitoera_database_data
+    external: true
   database_sandbox_data:
+    name: mitoera_database_sandbox_data
+    external: true
   redis_data:
+    name: mitoera_redis_data
+    external: true
   public_shared:
-
+    name: mitoera_public_shared
+    external: true
 networks:
+  # Garde son nom d'origine : app, worker et cron y sont déjà attachés.
   mitoera-network:
-    driver: bridge
+    name: api_mitoera-network
+    external: true
   web:
     external: true
