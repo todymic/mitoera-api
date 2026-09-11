@@ -18,6 +18,7 @@ services:
 volumes:
   acme_data:
     name: api_acme_data
+    external: true
 networks:
   web:
     external: true
