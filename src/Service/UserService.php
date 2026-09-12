@@ -57,7 +57,7 @@ class UserService
         return $user;
     }
 
-    public function sendVerificationEmail(User $user): void
+    public function sendVerificationEmail(User $user, ?string $plan = null): void
     {
         $token = bin2hex(random_bytes(32));
         $user->setEmailVerificationToken($token);
@@ -65,6 +65,9 @@ class UserService
         $this->em->flush();
 
         $verifyUrl = rtrim($this->appUrl, '/') . '/api/auth/verify-email?token=' . $token;
+        if ($plan) {
+            $verifyUrl .= '&plan=' . urlencode($plan);
+        }
 
         $email = (new Email())
             ->to($user->getEmail())

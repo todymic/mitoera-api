@@ -236,21 +236,18 @@ class AuthController extends AbstractController
     public function verifyEmail(Request $request): Response
     {
         $token  = $request->query->get('token', '');
+        $plan   = $request->query->get('plan', '');
         $boUrl  = $this->getParameter('app.bo_url');
 
         try {
             $this->userService->verifyEmail($token);
         } catch (InvalidArgumentException $e) {
-            return new Response(
-                '<script>window.location="' . $boUrl . '/login?error=' . urlencode($e->getMessage()) . '"</script>',
-                Response::HTTP_FOUND
-            );
+            $dest = $boUrl . '/email-verified?error=' . urlencode($e->getMessage());
+            return new Response('<script>window.location="' . $dest . '"</script>', Response::HTTP_FOUND);
         }
 
-        return new Response(
-            '<script>window.location="' . $boUrl . '/login?verified=1"</script>',
-            Response::HTTP_FOUND
-        );
+        $dest = $boUrl . '/email-verified' . ($plan ? '?plan=' . urlencode($plan) : '');
+        return new Response('<script>window.location="' . $dest . '"</script>', Response::HTTP_FOUND);
     }
 
     #[Route('/resend-verification', methods: ['POST'])]
@@ -258,10 +255,11 @@ class AuthController extends AbstractController
     {
         $data  = json_decode($request->getContent(), true) ?? [];
         $email = $data['email'] ?? '';
+        $plan  = $data['plan'] ?? null;
 
         $user = $this->userService->findByEmail($email);
         if ($user && !$user->isValidated()) {
-            $this->userService->sendVerificationEmail($user);
+            $this->userService->sendVerificationEmail($user, $plan ?: null);
         }
 
         // Always return success to avoid email enumeration
